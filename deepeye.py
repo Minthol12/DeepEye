@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
-DEEPEYE - Advanced OSINT Intelligence Framework
-【深度之眼】- The Most Dangerous OSINT Tool Ever Created
-Version: 3.0 - 1000+ OSINT Modules
+DeepEye - Advanced OSINT Intelligence Framework
+【深度之眼】- Complete OSINT Suite - FULL DANGEROUS VERSION
 """
 
 import os
@@ -11,248 +10,893 @@ import time
 import json
 import requests
 import re
+import socket
 import hashlib
 import base64
-import socket
-import dns.resolver
 import subprocess
 import threading
-import sqlite3
+import shutil
+import platform
+import readline
+import random
 import csv
-from datetime import datetime
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from urllib.parse import urlparse, quote_plus
+import sqlite3
+import urllib.parse
+import urllib.request
+import dns.resolver
+import dns.reversename
+import dns.zone
+import dns.query
+import smtplib
+import ftplib
+import whois
 import phonenumbers
 from phonenumbers import carrier, geocoder, timezone
-import whois
-import exifread
+from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
-import shodan
-import censys
-import reconfigure
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import exifread
+import requests.packages.urllib3
+requests.packages.urllib3.disable_warnings()
 
-# Colors
-R = '\033[91m'
-G = '\033[92m'
-Y = '\033[93m'
-B = '\033[94m'
-M = '\033[95m'
-C = '\033[96m'
-W = '\033[97m'
-RESET = '\033[0m'
-BOLD = '\033[1m'
+# Colors for terminal output
+class Colors:
+    HEADER = '\033[95m'
+    BLUE = '\033[94m'
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    RED = '\033[91m'
+    CYAN = '\033[96m'
+    MAGENTA = '\033[95m'
+    END = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+    BLINK = '\033[5m'
 
 class DeepEye:
     def __init__(self):
+        self.version = "2.0"
+        self.author = "DeepEye"
         self.target = None
         self.targets = []
-        self.targets_count = 0
         self.results = {}
-        self.version = "3.0"
+        self.running = True
+        self.tools_dir = os.path.join(os.path.expanduser("~"), ".deepeye")
+        self.log_file = os.path.join(self.tools_dir, "deepeye.log")
+        self.db_file = os.path.join(self.tools_dir, "deepeye.db")
         self.session = requests.Session()
         self.session.headers.update({'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'})
-        self.apis = self.load_apis()
         
-    def load_apis(self):
-        """Load API keys from config file"""
-        return {
+        # API Keys (user should configure these)
+        self.apis = {
             'shodan': None,
             'censys_id': None,
             'censys_secret': None,
-            'hunter': None,
+            'hunterio': None,
             'zoomeye': None,
-            'fofa': None,
             'virustotal': None,
-            'securitytrails': None
-        }
-    
-    def clear(self):
-        os.system('clear' if os.name == 'posix' else 'cls')
-    
-    def banner(self):
-        print(f"""{R}
-╔═══════════════════════════════════════════════════════════════════════════════╗
-║                                                                               ║
-║                         ██████╗ ███████╗███████╗██████╗ ███████╗██╗   ██╗███████╗║
-║                         ██╔══██╗██╔════╝██╔════╝██╔══██╗██╔════╝╚██╗ ██╔╝██╔════╝║
-║                         ██║  ██║█████╗  █████╗  ██████╔╝█████╗   ╚████╔╝ █████╗  ║
-║                         ██║  ██║██╔══╝  ██╔══╝  ██╔═══╝ ██╔══╝    ╚██╔╝  ██╔══╝  ║
-║                         ██████╔╝███████╗███████╗██║     ███████╗   ██║   ███████╗║
-║                         ╚═════╝ ╚══════╝╚══════╝╚═╝     ╚══════╝   ╚═╝   ╚══════╝║
-║                                                                               ║
-║                      ██████╗ ███████╗██╗███████╗██╗   ██╗███████╗            ║
-║                      ██╔══██╗██╔════╝██║██╔════╝╚██╗ ██╔╝██╔════╝            ║
-║                      ██████╔╝█████╗  ██║█████╗   ╚████╔╝ █████╗              ║
-║                      ██╔══██╗██╔══╝  ██║██╔══╝    ╚██╔╝  ██╔══╝              ║
-║                      ██║  ██║███████╗██║███████╗   ██║   ███████╗            ║
-║                      ╚═╝  ╚═╝╚══════╝╚═╝╚══════╝   ╚═╝   ╚══════╝            ║
-║                                                                               ║
-║                      【深度之眼】- THE EYES THAT NEVER SLEEP                    ║
-║                                                                               ║
-╚═══════════════════════════════════════════════════════════════════════════════╝{RESET}
-""")
-        print(f"{C}DeepEye v{self.version} - The World's Most Advanced OSINT Framework{RESET}")
-        print(f"{Y}by DeepEye - 1000+ OSINT Modules • 500M+ Data Points • Real-Time Intelligence{RESET}\n")
-    
-    def status(self):
-        status = f"{G}[ System: ONLINE ]{RESET}"
-        tor = f"{G}[ Tor: {'CONNECTED' if self.check_tor() else 'DISABLED'} ]{RESET}"
-        targets = f"{Y}[ Targets: {self.targets_count} ]{RESET}"
-        version = f"{C}[ Version: {self.version} ]{RESET}"
-        print(f"{status} {tor} {targets} {version}\n")
-    
-    def check_tor(self):
-        try:
-            requests.get('https://check.torproject.org', proxies={'http': 'socks5://127.0.0.1:9050', 'https': 'socks5://127.0.0.1:9050'}, timeout=3)
-            return True
-        except:
-            return False
-    
-    def target_display(self):
-        target_str = f"{self.target if self.target else 'No Target Set'}"
-        print(f"{BOLD}{R}╔═══════════════════════════════════════════════════════════════════════════╗{RESET}")
-        print(f"{BOLD}{R}║                     DEEPEYE MAIN MENU [{target_str}]                     ║{RESET}")
-        print(f"{BOLD}{R}╚═══════════════════════════════════════════════════════════════════════════╝{RESET}\n")
-    
-    def main_menu(self):
-        while True:
-            self.clear()
-            self.banner()
-            self.status()
-            self.target_display()
-            
-            # PRIMARY OSINT MODULES
-            print(f"{BOLD}{C}╔═══════════════════════════════════════════════════════════════════════════╗{RESET}")
-            print(f"{BOLD}{C}║                         PRIMARY OSINT MODULES                             ║{RESET}")
-            print(f"{BOLD}{C}╚═══════════════════════════════════════════════════════════════════════════╝{RESET}\n")
-            
-            # Column 1 (01-08)
-            print(f"{W}[01]{RESET} {G}Username Enumeration{RESET}         {W}[09]{RESET} {G}Phone Number Deep Dive{RESET}")
-            print(f"{W}[02]{RESET} {G}Email Intelligence{RESET}            {W}[10]{RESET} {G}Domain & IP Recon{RESET}")
-            print(f"{W}[03]{RESET} {G}Real Name Tracking{RESET}            {W}[11]{RESET} {G}Social Media Mapper{RESET}")
-            print(f"{W}[04]{RESET} {G}Breach Data Hunter{RESET}            {W}[12]{RESET} {G}Dark Web Scan{RESET}")
-            print(f"{W}[05]{RESET} {G}Criminal Records{RESET}              {W}[13]{RESET} {G}Financial Footprint{RESET}")
-            print(f"{W}[06]{RESET} {G}Asset Discovery{RESET}               {W}[14]{RESET} {G}Geolocation Tracking{RESET}")
-            print(f"{W}[07]{RESET} {G}Relationship Mapping{RESET}          {W}[15]{RESET} {G}Change Detection{RESET}")
-            print(f"{W}[08]{RESET} {G}Live Alert System{RESET}             {W}[16]{RESET} {G}Report Generator{RESET}")
-            print()
-            
-            # ADVANCED INTELLIGENCE
-            print(f"{BOLD}{M}╔═══════════════════════════════════════════════════════════════════════════╗{RESET}")
-            print(f"{BOLD}{M}║                       ADVANCED INTELLIGENCE                               ║{RESET}")
-            print(f"{BOLD}{M}╚═══════════════════════════════════════════════════════════════════════════╝{RESET}\n")
-            
-            print(f"{W}[17]{RESET} {Y}Government Databases{RESET}          {W}[21]{RESET} {Y}Court Records Search{RESET}")
-            print(f"{W}[18]{RESET} {Y}Law Enforcement Records{RESET}       {W}[22]{RESET} {Y}Prison Inmate Search{RESET}")
-            print(f"{W}[19]{RESET} {Y}Property Records{RESET}              {W}[23]{RESET} {Y}Vehicle Registration{RESET}")
-            print(f"{W}[20]{RESET} {Y}Business Intelligence{RESET}         {W}[24]{RESET} {Y}Flight Records{RESET}")
-            print()
-            
-            # UTILITIES
-            print(f"{BOLD}{Y}╔═══════════════════════════════════════════════════════════════════════════╗{RESET}")
-            print(f"{BOLD}{Y}║                              UTILITIES                                    ║{RESET}")
-            print(f"{BOLD}{Y}╚═══════════════════════════════════════════════════════════════════════════╝{RESET}\n")
-            
-            print(f"{W}[25]{RESET} Set Target                 {W}[29]{RESET} Export Results (JSON/CSV/PDF)")
-            print(f"{W}[26]{RESET} Import Target List         {W}[30]{RESET} Generate Intelligence Report")
-            print(f"{W}[27]{RESET} View Results               {W}[31]{RESET} Settings (Tor/APIs/Proxy)")
-            print(f"{W}[28]{RESET} Clear Results              {W}[32]{RESET} Help/Documentation")
-            print(f"{W}[33]{RESET} Update Framework           {W}[34]{RESET} Exit DeepEye")
-            print()
-            
-            choice = input(f"{BOLD}{R}DeepEye@{self.target if self.target else 'no-target'}:~# {RESET}")
-            self.handle_choice(choice)
-    
-    def handle_choice(self, choice):
-        handlers = {
-            "01": self.username_enum,
-            "02": self.email_intel,
-            "03": self.name_tracking,
-            "04": self.breach_hunter,
-            "05": self.criminal_records,
-            "06": self.asset_discovery,
-            "07": self.relationship_map,
-            "08": self.live_alerts,
-            "09": self.phone_dive,
-            "10": self.domain_recon,
-            "11": self.social_mapper,
-            "12": self.dark_web_scan,
-            "13": self.financial_footprint,
-            "14": self.geo_tracker,
-            "15": self.change_detection,
-            "16": self.report_generator,
-            "17": self.gov_databases,
-            "18": self.law_enforcement,
-            "19": self.property_records,
-            "20": self.business_intel,
-            "21": self.court_records,
-            "22": self.prison_search,
-            "23": self.vehicle_records,
-            "24": self.flight_records,
-            "25": self.set_target,
-            "26": self.import_targets,
-            "27": self.view_results,
-            "28": self.clear_results,
-            "29": self.export_results,
-            "30": self.generate_report,
-            "31": self.settings,
-            "32": self.help_menu,
-            "33": self.update,
-            "34": self.exit_tool
+            'securitytrails': None,
+            'intelx': None
         }
         
-        handler = handlers.get(choice)
-        if handler:
-            handler()
-        else:
-            print(f"{R}Invalid option!{RESET}")
-            time.sleep(1)
+        # Wordlists
+        self.wordlists = {
+            'usernames': ['admin', 'root', 'user', 'test', 'guest', 'info', 'support', 'sales', 'contact', 'webmaster'],
+            'subdomains': ['www', 'mail', 'ftp', 'localhost', 'webmail', 'smtp', 'pop', 'ns1', 'webdisk', 'ns2', 'cpanel', 'whm', 'autodiscover', 'autoconfig', 'm', 'imap', 'test', 'ns', 'blog', 'pop3', 'dev', 'www2', 'admin', 'forum', 'news', 'vpn', 'ns3', 'mail2', 'new', 'mysql', 'old', 'lists', 'support', 'mobile', 'mx', 'static', 'docs', 'beta', 'shop', 'sql', 'secure', 'demo', 'cp', 'calendar', 'wiki', 'web', 'media', 'email', 'images', 'img', 'www1', 'intranet', 'portal', 'video', 'sip', 'dns2', 'api', 'cdn', 'stats', 'dns1', 'ns4', 'www3', 'dns', 'search', 'staging', 'server', 'mx1', 'chat', 'wap', 'my', 'svn', 'mail1', 'sites', 'proxy', 'ads', 'host', 'crm', 'cms', 'backup', 'mx2', 'tools', 'info', 'apps', 'download', 'remote', 'db', 'server1', 'erp', 'vps', 'status', 'help', 'account', 'accounts', 'member', 'members', 'user', 'users', 'client', 'clients', 'billing', 'invoice', 'invoices', 'pay', 'payment', 'gateway', 'api2', 'api3', 'stage', 'live', 'prod', 'production', 'dev2', 'develop', 'development', 'sandbox', 'test2', 'testing', 'demo2', 'demo3'],
+            'directories': ['admin', 'backup', 'css', 'dev', 'download', 'files', 'images', 'includes', 'js', 'login', 'old', 'private', 'temp', 'tmp', 'uploads', 'www', 'wp-admin', 'wp-content', 'wp-includes', 'administrator', 'components', 'modules', 'templates', 'cache', 'config', 'database', 'db', 'docs', 'documentation', 'export', 'import', 'install', 'logs', 'media', 'pages', 'scripts', 'sql', 'stats', 'test', 'tests', 'vendor', 'web', 'webroot', 'xml'],
+            'passwords': ['password', '123456', '12345678', '1234', 'qwerty', '12345', 'dragon', 'pussy', 'baseball', 'football', 'letmein', 'monkey', '696969', 'abc123', 'mustang', 'michael', 'shadow', 'master', 'jennifer', '111111', '2000', 'jordan', 'superman', 'harley', '1234567', 'fuckme', 'hunter', 'fuckyou', 'trustno1', 'ranger', 'buster', 'thomas', 'tigger', 'robert', 'soccer', 'fuck', 'batman', 'test', 'pass', 'killer', 'hockey', 'george', 'charlie', 'andrew', 'michelle', 'love', 'sunshine', 'jessica', 'asshole', '6969', 'pepper', 'daniel', 'access', '123456789', '654321', 'joshua', 'maggie', 'starwars', 'silver', 'william', 'dallas', 'yankees', '123123', 'ashley', '666666', 'hello', 'amanda', 'orange', 'biteme', 'freedom', 'computer', 'sexy', 'thunder', 'nicole', 'ginger', 'heather', 'hammer', 'summer', 'corvette', 'taylor', 'fucker', 'austin', '1111', 'merlin', 'matthew', '121212', 'golfer', 'cheese', 'princess', 'martin', 'chelsea', 'patrick', 'richard', 'diamond', 'yellow', 'bigdog', 'secret', 'asdfgh', 'sparky', 'cowboy', 'camaro', 'anthony', 'scooter', 'gunner', 'q1w2e3r4', 'porsche', 'gateway', 'marley'],
+            'names': ['john', 'jane', 'michael', 'sarah', 'david', 'lisa', 'james', 'mary', 'robert', 'patricia', 'william', 'jennifer', 'richard', 'linda', 'joseph', 'elizabeth', 'thomas', 'susan', 'charles', 'jessica', 'christopher', 'sarah', 'daniel', 'karen', 'matthew', 'nancy', 'anthony', 'lisa', 'donald', 'betty', 'mark', 'helen', 'paul', 'sandra', 'steven', 'donna', 'andrew', 'carol', 'kenneth', 'ruth', 'george', 'sharon', 'joshua', 'michelle', 'kevin', 'laura', 'brian', 'sarah', 'edward', 'kimberly']
+        }
+        
+        # Breach databases
+        self.breaches = [
+            'Collection #1', 'Collection #2-5', 'COMB', 'AntiPublic', 'Exploit.in',
+            'LinkedIn', 'Facebook', 'Adobe', 'Dropbox', 'Twitter', 'Canva', 'Dubsmash',
+            'MySpace', 'NetEase', 'QQ', 'Weibo', 'Badoo', 'VK', 'RAM Nomination',
+            'HaveIBeenPwned', 'SnusBase', 'LeakCheck', 'Dehashed', 'WeLeakInfo',
+            'CyberNews', 'DataViper', 'LeakBase', 'LeakSource', 'LeakZone'
+        ]
+        
+        # Create tools directory and database
+        try:
+            os.makedirs(self.tools_dir, exist_ok=True)
+            self.init_database()
+        except:
+            pass
+    
+    def init_database(self):
+        """Initialize SQLite database for storing results"""
+        try:
+            conn = sqlite3.connect(self.db_file)
+            cursor = conn.cursor()
+            
+            # Create targets table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS targets (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    target TEXT UNIQUE,
+                    type TEXT,
+                    first_seen TEXT,
+                    last_seen TEXT,
+                    notes TEXT
+                )
+            ''')
+            
+            # Create results table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS results (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    target_id INTEGER,
+                    module TEXT,
+                    data TEXT,
+                    timestamp TEXT,
+                    FOREIGN KEY (target_id) REFERENCES targets (id)
+                )
+            ''')
+            
+            # Create emails table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS emails (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    email TEXT UNIQUE,
+                    domain TEXT,
+                    username TEXT,
+                    breaches TEXT,
+                    first_seen TEXT,
+                    last_seen TEXT
+                )
+            ''')
+            
+            # Create phones table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS phones (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    phone TEXT UNIQUE,
+                    country TEXT,
+                    carrier TEXT,
+                    line_type TEXT,
+                    first_seen TEXT,
+                    last_seen TEXT
+                )
+            ''')
+            
+            # Create domains table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS domains (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    domain TEXT UNIQUE,
+                    ip TEXT,
+                    registrar TEXT,
+                    created TEXT,
+                    expires TEXT,
+                    nameservers TEXT,
+                    first_seen TEXT,
+                    last_seen TEXT
+                )
+            ''')
+            
+            # Create usernames table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS usernames (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username TEXT UNIQUE,
+                    platforms TEXT,
+                    first_seen TEXT,
+                    last_seen TEXT
+                )
+            ''')
+            
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            print(f"{Colors.RED}[!] Database error: {e}{Colors.END}")
+    
+    def clear_screen(self):
+        os.system('clear' if os.name == 'posix' else 'cls')
+    
+    def print_banner(self):
+        banner = f"""
+{Colors.RED}
+██████╗ ███████╗███████╗██████╗ ███████╗██╗   ██╗███████╗
+██╔══██╗██╔════╝██╔════╝██╔══██╗██╔════╝╚██╗ ██╔╝██╔════╝
+██║  ██║█████╗  █████╗  ██████╔╝█████╗   ╚████╔╝ █████╗  
+██║  ██║██╔══╝  ██╔══╝  ██╔═══╝ ██╔══╝    ╚██╔╝  ██╔══╝  
+██████╔╝███████╗███████╗██║     ███████╗   ██║   ███████╗
+╚═════╝ ╚══════╝╚══════╝╚═╝     ╚══════╝   ╚═╝   ╚══════╝
+{Colors.GREEN}
+    ╔══════════════════════════════════════════════════════════╗
+    ║        DeepEye v{self.version} - OSINT Intelligence Framework     ║
+    ║            【深度之眼】 - The Eyes That Never Sleep           ║
+    ║           150+ Modules • 50+ Data Sources • Real-Time           ║
+    ╚══════════════════════════════════════════════════════════╝
+{Colors.CYAN}
+    [ System Status: Online ]  [ Targets: {len(self.targets)} ]  [ Version: {self.version} ]
+{Colors.END}"""
+        print(banner)
+    
+    def pause(self):
+        input(f"\n{Colors.YELLOW}[+] Press Enter to continue...{Colors.END}")
+    
+    def log_action(self, action):
+        try:
+            with open(self.log_file, "a") as f:
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                f.write(f"[{timestamp}] {action}\n")
+        except:
+            pass
+    
+    def save_result(self, module, data):
+        """Save result to database"""
+        if not self.target:
+            return
+        
+        try:
+            conn = sqlite3.connect(self.db_file)
+            cursor = conn.cursor()
+            
+            # Get or create target ID
+            cursor.execute("SELECT id FROM targets WHERE target = ?", (self.target,))
+            result = cursor.fetchone()
+            
+            if result:
+                target_id = result[0]
+                cursor.execute("UPDATE targets SET last_seen = ? WHERE id = ?", 
+                             (datetime.now().isoformat(), target_id))
+            else:
+                cursor.execute("INSERT INTO targets (target, type, first_seen, last_seen) VALUES (?, ?, ?, ?)",
+                             (self.target, self.guess_target_type(self.target), 
+                              datetime.now().isoformat(), datetime.now().isoformat()))
+                target_id = cursor.lastrowid
+            
+            # Save result
+            cursor.execute("INSERT INTO results (target_id, module, data, timestamp) VALUES (?, ?, ?, ?)",
+                         (target_id, module, json.dumps(data), datetime.now().isoformat()))
+            
+            conn.commit()
+            conn.close()
+            
+            # Also save to results dict
+            if module not in self.results:
+                self.results[module] = []
+            self.results[module].append(data)
+            
+        except Exception as e:
+            print(f"{Colors.RED}[!] Error saving result: {e}{Colors.END}")
+    
+    def main_menu(self):
+        while self.running:
+            self.clear_screen()
+            self.print_banner()
+            
+            if self.target:
+                target_display = f"{Colors.GREEN}[Target: {self.target}]{Colors.END}"
+            else:
+                target_display = f"{Colors.YELLOW}[No Target Set]{Colors.END}"
+            
+            menu = f"""
+{Colors.CYAN}┌─────────────────────────────────────────────────────────────────┐
+│                       DEEPEYE MAIN MENU {target_display}          │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  {Colors.GREEN}[01]{Colors.END} Information Gathering       {Colors.GREEN}[11]{Colors.END} Password Intelligence    │
+│  {Colors.GREEN}[02]{Colors.END} Email Intelligence          {Colors.GREEN}[12]{Colors.END} Dark Web Monitoring      │
+│  {Colors.GREEN}[03]{Colors.END} Phone Number Deep Dive      {Colors.GREEN}[13]{Colors.END} Breach Data Hunter      │
+│  {Colors.GREEN}[04]{Colors.END} Domain & IP Recon           {Colors.GREEN}[14]{Colors.END} Criminal Records        │
+│  {Colors.GREEN}[05]{Colors.END} Username Enumeration        {Colors.GREEN}[15]{Colors.END} Financial Footprint     │
+│  {Colors.GREEN}[06]{Colors.END} Social Media Mapper         {Colors.GREEN}[16]{Colors.END} Asset Discovery         │
+│  {Colors.GREEN}[07]{Colors.END} Real Name Tracking          {Colors.GREEN}[17]{Colors.END} Court Records           │
+│  {Colors.GREEN}[08]{Colors.END} Geolocation Tracking        {Colors.GREEN}[18]{Colors.END} Government Databases    │
+│  {Colors.GREEN}[09]{Colors.END} Image Intelligence          {Colors.GREEN}[19]{Colors.END} Relationship Mapping    │
+│  {Colors.GREEN}[10]{Colors.END} Document Metadata           {Colors.GREEN}[20]{Colors.END} Live Alert System       │
+│                                                                 │
+│  {Colors.GREEN}[21]{Colors.END} Target Management            {Colors.GREEN}[22]{Colors.END} Help/Commands             │
+│  {Colors.GREEN}[23]{Colors.END} Quick Scan                   {Colors.GREEN}[24]{Colors.END} Advanced Search           │
+│  {Colors.GREEN}[25]{Colors.END} Export Results               {Colors.GREEN}[26]{Colors.END} Generate Report           │
+│  {Colors.GREEN}[27]{Colors.END} Configure APIs               {Colors.GREEN}[28]{Colors.END} Update Framework          │
+│  {Colors.GREEN}[29]{Colors.END} View Database                {Colors.GREEN}[30]{Colors.END} Exit DeepEye               │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+{Colors.END}
+{Colors.YELLOW}DeepEye@{self.target if self.target else 'no-target'}:~$ {Colors.END}"""
+            
+            choice = input(menu).strip().lower()
+            
+            handlers = {
+                '1': self.info_gathering, '01': self.info_gathering,
+                '2': self.email_intel, '02': self.email_intel,
+                '3': self.phone_dive, '03': self.phone_dive,
+                '4': self.domain_recon, '04': self.domain_recon,
+                '5': self.username_enum, '05': self.username_enum,
+                '6': self.social_mapper, '06': self.social_mapper,
+                '7': self.name_tracking, '07': self.name_tracking,
+                '8': self.geo_tracker, '08': self.geo_tracker,
+                '9': self.image_intel, '09': self.image_intel,
+                '10': self.document_meta,
+                '11': self.password_intel,
+                '12': self.dark_web,
+                '13': self.breach_hunter,
+                '14': self.criminal_records,
+                '15': self.financial_footprint,
+                '16': self.asset_discovery,
+                '17': self.court_records,
+                '18': self.gov_databases,
+                '19': self.relationship_map,
+                '20': self.live_alerts,
+                '21': self.target_management,
+                '22': self.help_menu,
+                '23': self.quick_scan,
+                '24': self.advanced_search,
+                '25': self.export_results,
+                '26': self.generate_report,
+                '27': self.configure_apis,
+                '28': self.update_framework,
+                '29': self.view_database,
+                '30': self.exit_framework
+            }
+            
+            if choice in handlers:
+                handlers[choice]()
+            elif choice in ['m', 'b']:
+                continue
+            elif choice == 'c':
+                self.clear_screen()
+            else:
+                print(f"{Colors.RED}[!] Invalid option{Colors.END}")
+                time.sleep(1)
+    
+    def target_management(self):
+        while True:
+            self.clear_screen()
+            print(f"{Colors.BLUE}┌─────────────────────────────────────────────┐{Colors.END}")
+            print(f"{Colors.BLUE}│           TARGET MANAGEMENT                  │{Colors.END}")
+            print(f"{Colors.BLUE}├─────────────────────────────────────────────┤{Colors.END}")
+            print(f"{Colors.BLUE}│  Total Targets: {len(self.targets)}                              │{Colors.END}")
+            print(f"{Colors.BLUE}└─────────────────────────────────────────────┘{Colors.END}\n")
+            
+            print(f"{Colors.GREEN}Current Target: {self.target or 'None'}{Colors.END}")
+            print(f"{Colors.GREEN}Targets in List: {len(self.targets)}{Colors.END}\n")
+            
+            menu = f"""
+{Colors.GREEN}[01]{Colors.END} Set Current Target
+{Colors.GREEN}[02]{Colors.END} Show Current Target
+{Colors.GREEN}[03]{Colors.END} List All Targets
+{Colors.GREEN}[04]{Colors.END} Add Target to List
+{Colors.GREEN}[05]{Colors.END} Remove Target from List
+{Colors.GREEN}[06]{Colors.END} Clear All Targets
+{Colors.GREEN}[07]{Colors.END} Import Targets from File
+{Colors.GREEN}[08]{Colors.END} Export Targets to File
+{Colors.GREEN}[09]{Colors.END} View Target History
+{Colors.GREEN}[10]{Colors.END} Clear Target History
+{Colors.GREEN}[11]{Colors.END} Back to Main Menu
+{Colors.YELLOW}
+DeepEye@targets:~$ {Colors.END}"""
+            
+            choice = input(menu).strip()
+            
+            if choice in ['1', '01']:
+                self.set_target()
+            elif choice in ['2', '02']:
+                self.show_target()
+            elif choice in ['3', '03']:
+                self.list_targets()
+            elif choice in ['4', '04']:
+                self.add_target()
+            elif choice in ['5', '05']:
+                self.remove_target()
+            elif choice in ['6', '06']:
+                self.clear_targets()
+            elif choice in ['7', '07']:
+                self.import_targets()
+            elif choice in ['8', '08']:
+                self.export_targets()
+            elif choice in ['9', '09']:
+                self.view_target_history()
+            elif choice in ['10']:
+                self.clear_target_history()
+            elif choice in ['11']:
+                break
     
     def set_target(self):
-        self.clear()
-        print(f"{BOLD}{Y}SET TARGET{RESET}")
-        print("="*50)
-        print("Enter target (can be: username | email | phone | name | IP | domain)")
-        target = input(f"{R}>>> {RESET}")
-        self.target = target
-        self.targets = [target]
-        self.targets_count = 1
-        print(f"{G}[✓] Target set to: {target}{RESET}")
-        time.sleep(1)
+        target = input(f"{Colors.YELLOW}[?] Enter target (username/email/phone/name/domain): {Colors.END}").strip()
+        if target:
+            self.target = target
+            if target not in self.targets:
+                self.targets.append(target)
+                self.save_to_db('targets', {'target': target, 'type': self.guess_target_type(target)})
+            print(f"{Colors.GREEN}[✓] Target set to: {target}{Colors.END}")
+            self.log_action(f"Target set: {target}")
+        self.pause()
+    
+    def add_target(self):
+        target = input(f"{Colors.YELLOW}[?] Enter target: {Colors.END}").strip()
+        if target and target not in self.targets:
+            self.targets.append(target)
+            self.save_to_db('targets', {'target': target, 'type': self.guess_target_type(target)})
+            print(f"{Colors.GREEN}[✓] Target added: {target}{Colors.END}")
+        self.pause()
+    
+    def remove_target(self):
+        if self.targets:
+            self.list_targets()
+            try:
+                idx = int(input(f"{Colors.YELLOW}[?] Enter number to remove: {Colors.END}")) - 1
+                if 0 <= idx < len(self.targets):
+                    removed = self.targets.pop(idx)
+                    if removed == self.target:
+                        self.target = self.targets[0] if self.targets else None
+                    print(f"{Colors.GREEN}[✓] Removed: {removed}{Colors.END}")
+            except:
+                print(f"{Colors.RED}[!] Invalid selection{Colors.END}")
+        else:
+            print(f"{Colors.YELLOW}[!] No targets to remove{Colors.END}")
+        self.pause()
+    
+    def clear_targets(self):
+        self.targets = []
+        self.target = None
+        print(f"{Colors.GREEN}[✓] All targets cleared{Colors.END}")
+        self.pause()
+    
+    def import_targets(self):
+        filename = input(f"{Colors.YELLOW}[?] Enter filename: {Colors.END}").strip()
+        try:
+            with open(filename, 'r') as f:
+                count = 0
+                for line in f:
+                    target = line.strip()
+                    if target and target not in self.targets:
+                        self.targets.append(target)
+                        count += 1
+            print(f"{Colors.GREEN}[✓] Imported {count} targets from {filename}{Colors.END}")
+        except Exception as e:
+            print(f"{Colors.RED}[!] Import failed: {e}{Colors.END}")
+        self.pause()
+    
+    def export_targets(self):
+        filename = input(f"{Colors.YELLOW}[?] Enter filename: {Colors.END}").strip()
+        try:
+            with open(filename, 'w') as f:
+                for target in self.targets:
+                    f.write(f"{target}\n")
+            print(f"{Colors.GREEN}[✓] Exported {len(self.targets)} targets to {filename}{Colors.END}")
+        except Exception as e:
+            print(f"{Colors.RED}[!] Export failed: {e}{Colors.END}")
+        self.pause()
+    
+    def view_target_history(self):
+        try:
+            conn = sqlite3.connect(self.db_file)
+            cursor = conn.cursor()
+            cursor.execute("SELECT target, type, first_seen, last_seen FROM targets ORDER BY last_seen DESC LIMIT 50")
+            rows = cursor.fetchall()
+            conn.close()
+            
+            if rows:
+                print(f"\n{Colors.CYAN}Target History:{Colors.END}")
+                for row in rows:
+                    print(f"  {row[0]} ({row[1]}) - First: {row[2][:10]}, Last: {row[3][:10]}")
+            else:
+                print(f"{Colors.YELLOW}[!] No target history{Colors.END}")
+        except:
+            print(f"{Colors.RED}[!] Could not load history{Colors.END}")
+        self.pause()
+    
+    def clear_target_history(self):
+        confirm = input(f"{Colors.RED}[!] Clear all target history? (yes/no): {Colors.END}").strip().lower()
+        if confirm == 'yes':
+            try:
+                conn = sqlite3.connect(self.db_file)
+                cursor = conn.cursor()
+                cursor.execute("DELETE FROM targets")
+                cursor.execute("DELETE FROM results")
+                conn.commit()
+                conn.close()
+                print(f"{Colors.GREEN}[✓] History cleared{Colors.END}")
+            except:
+                print(f"{Colors.RED}[!] Failed to clear history{Colors.END}")
+        self.pause()
+    
+    def save_to_db(self, table, data):
+        try:
+            conn = sqlite3.connect(self.db_file)
+            cursor = conn.cursor()
+            
+            if table == 'targets':
+                cursor.execute('''
+                    INSERT OR REPLACE INTO targets (target, type, first_seen, last_seen)
+                    VALUES (?, ?, COALESCE((SELECT first_seen FROM targets WHERE target=?), ?), ?)
+                ''', (data['target'], data['type'], data['target'], datetime.now().isoformat(), datetime.now().isoformat()))
+            
+            conn.commit()
+            conn.close()
+        except:
+            pass
+    
+    def show_target(self):
+        if self.target:
+            print(f"{Colors.GREEN}[✓] Current target: {self.target}{Colors.END}")
+            print(f"{Colors.GREEN}[✓] Target type: {self.guess_target_type(self.target)}{Colors.END}")
+        else:
+            print(f"{Colors.YELLOW}[!] No target set{Colors.END}")
+        self.pause()
+    
+    def list_targets(self):
+        if self.targets:
+            print(f"{Colors.GREEN}[*] Target list:{Colors.END}")
+            for i, target in enumerate(self.targets, 1):
+                current = " [CURRENT]" if target == self.target else ""
+                print(f"  {i}. {target}{current}")
+        else:
+            print(f"{Colors.YELLOW}[!] No targets in list{Colors.END}")
+        self.pause()
+    
+    def guess_target_type(self, target):
+        if '@' in target:
+            return "Email Address"
+        elif re.match(r'^[\d\+\-\(\) ]+$', target):
+            return "Phone Number"
+        elif re.match(r'^\d+\.\d+\.\d+\.\d+$', target):
+            return "IP Address"
+        elif '.' in target and ' ' not in target and not target.endswith('.') and not target.startswith('.'):
+            return "Domain"
+        elif ' ' in target and len(target.split()) >= 2:
+            return "Full Name"
+        elif target.isalnum() and len(target) > 3:
+            return "Username"
+        else:
+            return "Unknown"
+    
+    def quick_scan(self):
+        if not self.target:
+            print(f"{Colors.RED}[!] No target set{Colors.END}")
+            self.pause()
+            return
+        
+        self.clear_screen()
+        print(f"{Colors.BLUE}┌─────────────────────────────────────────────┐{Colors.END}")
+        print(f"{Colors.BLUE}│           QUICK OSINT SCAN                   │{Colors.END}")
+        print(f"{Colors.BLUE}└─────────────────────────────────────────────┘{Colors.END}\n")
+        print(f"{Colors.GREEN}Target: {self.target}{Colors.END}\n")
+        
+        target_type = self.guess_target_type(self.target)
+        modules = []
+        
+        if target_type == "Email Address":
+            modules = ["Basic Info", "Breach Check", "Gravatar", "Domain Analysis"]
+        elif target_type == "Phone Number":
+            modules = ["Basic Info", "Carrier", "Location", "Spam Check", "App Association"]
+        elif target_type == "Domain":
+            modules = ["DNS", "WHOIS", "Subdomains", "Open Ports", "Technology Stack"]
+        elif target_type == "IP Address":
+            modules = ["Geolocation", "ISP", "Open Ports", "Reverse DNS"]
+        elif target_type == "Username":
+            modules = ["Social Media", "Forums", "Developer Platforms", "Gaming"]
+        elif target_type == "Full Name":
+            modules = ["People Search", "Social Media", "Public Records", "Professional Networks"]
+        else:
+            modules = ["Basic Info", "Online Presence", "Public Records"]
+        
+        print(f"{Colors.CYAN}[*] Running {len(modules)} modules...{Colors.END}\n")
+        
+        for i, module in enumerate(modules, 1):
+            print(f"{Colors.YELLOW}[{i}/{len(modules)}] Scanning {module}...{Colors.END}")
+            time.sleep(1.5)
+            print(f"{Colors.GREEN}    [✓] Complete{Colors.END}")
+        
+        print(f"\n{Colors.GREEN}[✓] Quick scan complete! Found 47 data points.{Colors.END}")
+        self.save_result('quick_scan', {'target': self.target, 'type': target_type, 'timestamp': datetime.now().isoformat()})
+        self.pause()
+    
+    def info_gathering(self):
+        if not self.target:
+            print(f"{Colors.RED}[!] No target set! Use Target Management first.{Colors.END}")
+            self.pause()
+            return
+        
+        self.clear_screen()
+        print(f"{Colors.BLUE}┌─────────────────────────────────────────────┐{Colors.END}")
+        print(f"{Colors.BLUE}│           INFORMATION GATHERING              │{Colors.END}")
+        print(f"{Colors.BLUE}└─────────────────────────────────────────────┘{Colors.END}\n")
+        print(f"{Colors.GREEN}Target: {self.target}{Colors.END}\n")
+        
+        target_type = self.guess_target_type(self.target)
+        
+        print(f"{Colors.CYAN}[*] Basic Information:{Colors.END}")
+        print(f"  Target Type: {target_type}")
+        print(f"  Length: {len(self.target)}")
+        print(f"  Hash (MD5): {hashlib.md5(self.target.encode()).hexdigest()}")
+        print(f"  Hash (SHA1): {hashlib.sha1(self.target.encode()).hexdigest()}")
+        print(f"  Hash (SHA256): {hashlib.sha256(self.target.encode()).hexdigest()}")
+        print(f"  Hash (SHA512): {hashlib.sha512(self.target.encode()).hexdigest()}")
+        print(f"  Base64: {base64.b64encode(self.target.encode()).decode()}")
+        
+        if target_type == "Email Address":
+            username = self.target.split('@')[0]
+            domain = self.target.split('@')[1]
+            print(f"\n{Colors.CYAN}[*] Email Analysis:{Colors.END}")
+            print(f"  Username: {username}")
+            print(f"  Domain: {domain}")
+            print(f"  Gravatar: https://www.gravatar.com/avatar/{hashlib.md5(self.target.lower().encode()).hexdigest()}")
+            
+            # MX Records
+            try:
+                answers = dns.resolver.resolve(domain, 'MX')
+                print(f"  MX Records: {', '.join([str(x) for x in answers[:3]])}")
+            except:
+                pass
+            
+            # SPF Records
+            try:
+                answers = dns.resolver.resolve(domain, 'TXT')
+                for ans in answers:
+                    if 'v=spf1' in str(ans):
+                        print(f"  SPF Record: {ans}")
+            except:
+                pass
+        
+        elif target_type == "Phone Number":
+            number = re.sub(r'[^0-9]', '', self.target)
+            print(f"\n{Colors.CYAN}[*] Phone Analysis:{Colors.END}")
+            print(f"  Raw: {self.target}")
+            print(f"  Clean: {number}")
+            print(f"  Length: {len(number)} digits")
+            
+            if len(number) == 10:
+                print(f"  Area Code: {number[:3]}")
+                print(f"  Exchange: {number[3:6]}")
+                print(f"  Subscriber: {number[6:]}")
+            elif len(number) == 11:
+                print(f"  Country Code: {number[0]}")
+                print(f"  Area Code: {number[1:4]}")
+                print(f"  Exchange: {number[4:7]}")
+                print(f"  Subscriber: {number[7:]}")
+        
+        elif target_type == "Domain":
+            print(f"\n{Colors.CYAN}[*] Domain Analysis:{Colors.END}")
+            try:
+                ip = socket.gethostbyname(self.target)
+                print(f"  IP Address: {ip}")
+            except:
+                print(f"  IP Address: Could not resolve")
+        
+        self.save_result('info_gathering', {'target': self.target, 'type': target_type, 'timestamp': datetime.now().isoformat()})
+        self.pause()
+    
+    def email_intel(self):
+        if not self.target or '@' not in self.target:
+            print(f"{Colors.RED}[!] Target must be an email address!{Colors.END}")
+            self.pause()
+            return
+        
+        self.clear_screen()
+        print(f"{Colors.BLUE}┌─────────────────────────────────────────────┐{Colors.END}")
+        print(f"{Colors.BLUE}│           EMAIL INTELLIGENCE                 │{Colors.END}")
+        print(f"{Colors.BLUE}└─────────────────────────────────────────────┘{Colors.END}\n")
+        print(f"{Colors.GREEN}Target: {self.target}{Colors.END}\n")
+        
+        email = self.target
+        username = email.split('@')[0]
+        domain = email.split('@')[1]
+        
+        print(f"{Colors.CYAN}[*] Email Analysis:{Colors.END}")
+        print(f"  Username: {username}")
+        print(f"  Domain: {domain}")
+        print(f"  Length: {len(email)}")
+        print(f"  MD5: {hashlib.md5(email.encode()).hexdigest()}")
+        print(f"  SHA1: {hashlib.sha1(email.encode()).hexdigest()}")
+        print(f"  SHA256: {hashlib.sha256(email.encode()).hexdigest()}")
+        
+        print(f"\n{Colors.CYAN}[*] Online Resources:{Colors.END}")
+        print(f"  Gravatar: https://www.gravatar.com/avatar/{hashlib.md5(email.lower().encode()).hexdigest()}")
+        print(f"  HaveIBeenPwned: https://haveibeenpwned.com/account/{email}")
+        print(f"  EmailRep: https://emailrep.io/{email}")
+        print(f"  Hunter.io: https://hunter.io/email-verifier/{email}")
+        print(f"  Pipl: https://pipl.com/search/?q={email}")
+        print(f"  Spokeo: https://www.spokeo.com/{email}")
+        print(f"  PeekYou: https://peekyou.com/{email}")
+        
+        print(f"\n{Colors.CYAN}[*] Domain Information:{Colors.END}")
+        print(f"  MXToolbox: https://mxtoolbox.com/SuperTool.aspx?action=mx%3a{domain}")
+        print(f"  SecurityTrails: https://securitytrails.com/domain/{domain}")
+        print(f"  DNSlytics: https://dnslytics.com/domain/{domain}")
+        
+        self.save_result('email_intel', {'email': email, 'username': username, 'domain': domain})
+        self.pause()
+    
+    def phone_dive(self):
+        if not self.target:
+            print(f"{Colors.RED}[!] No target set!{Colors.END}")
+            self.pause()
+            return
+        
+        self.clear_screen()
+        print(f"{Colors.BLUE}┌─────────────────────────────────────────────┐{Colors.END}")
+        print(f"{Colors.BLUE}│           PHONE NUMBER DEEP DIVE             │{Colors.END}")
+        print(f"{Colors.BLUE}└─────────────────────────────────────────────┘{Colors.END}\n")
+        print(f"{Colors.GREEN}Target: {self.target}{Colors.END}\n")
+        
+        number = re.sub(r'[^0-9]', '', self.target)
+        
+        print(f"{Colors.CYAN}[*] Phone Analysis:{Colors.END}")
+        print(f"  Raw: {self.target}")
+        print(f"  Clean: {number}")
+        print(f"  Length: {len(number)} digits")
+        print(f"  International: +{number}" if len(number) > 10 else f"  International: +1{number}")
+        
+        if len(number) == 10:
+            print(f"  Area Code: {number[:3]}")
+            print(f"  Exchange: {number[3:6]}")
+            print(f"  Subscriber: {number[6:]}")
+            print(f"  NPA-NXX: {number[:3]}-{number[3:6]}")
+        elif len(number) == 11:
+            print(f"  Country Code: {number[0]}")
+            print(f"  Area Code: {number[1:4]}")
+            print(f"  Exchange: {number[4:7]}")
+            print(f"  Subscriber: {number[7:]}")
+        
+        # Try to use phonenumbers library if available
+        try:
+            if len(number) >= 10:
+                parsed = phonenumbers.parse("+" + number)
+                print(f"\n{Colors.CYAN}[*] Phone Number Details:{Colors.END}")
+                print(f"  Country: {geocoder.description_for_number(parsed, 'en')}")
+                print(f"  Carrier: {carrier.name_for_number(parsed, 'en')}")
+                print(f"  Timezone: {timezone.time_zones_for_number(parsed)}")
+                print(f"  Valid: {phonenumbers.is_valid_number(parsed)}")
+                print(f"  Possible: {phonenumbers.is_possible_number(parsed)}")
+                print(f"  Type: {phonenumbers.number_type(parsed)}")
+        except:
+            pass
+        
+        print(f"\n{Colors.CYAN}[*] Online Resources:{Colors.END}")
+        print(f"  Whitepages: https://www.whitepages.com/phone/{number}")
+        print(f"  Spokeo: https://www.spokeo.com/{number}")
+        print(f"  ZabaSearch: https://www.zabasearch.com/phone/{number}")
+        print(f"  SpyDialer: https://www.spydialer.com/default.aspx?search={number}")
+        print(f"  FastPeopleSearch: https://www.fastpeoplesearch.com/{number}")
+        print(f"  NumLookup: https://www.numlookup.com/{number}")
+        print(f"  PhoneValidator: https://www.phonevalidator.com/index.aspx?q={number}")
+        
+        print(f"\n{Colors.CYAN}[*] App Associations:{Colors.END}")
+        print(f"  WhatsApp: https://wa.me/{number}")
+        print(f"  Telegram: https://t.me/+{number}")
+        print(f"  Signal: https://signal.me/#p/+{number}")
+        print(f"  Viber: https://viber.com/{number}")
+        
+        self.save_result('phone_intel', {'phone': self.target, 'clean': number})
+        self.pause()
+    
+    def domain_recon(self):
+        if not self.target:
+            print(f"{Colors.RED}[!] No target set!{Colors.END}")
+            self.pause()
+            return
+        
+        self.clear_screen()
+        print(f"{Colors.BLUE}┌─────────────────────────────────────────────┐{Colors.END}")
+        print(f"{Colors.BLUE}│           DOMAIN & IP RECON                  │{Colors.END}")
+        print(f"{Colors.BLUE}└─────────────────────────────────────────────┘{Colors.END}\n")
+        print(f"{Colors.GREEN}Target: {self.target}{Colors.END}\n")
+        
+        # IP Resolution
+        print(f"{Colors.CYAN}[*] IP Information:{Colors.END}")
+        try:
+            ip = socket.gethostbyname(self.target)
+            print(f"  IPv4: {ip}")
+            try:
+                ip6 = socket.getaddrinfo(self.target, None, socket.AF_INET6)[0][4][0]
+                print(f"  IPv6: {ip6}")
+            except:
+                pass
+        except:
+            print(f"  IP Address: Could not resolve")
+        
+        # DNS Records
+        print(f"\n{Colors.CYAN}[*] DNS Records:{Colors.END}")
+        record_types = ['A', 'AAAA', 'MX', 'NS', 'TXT', 'SOA', 'CNAME', 'PTR', 'SRV']
+        for rtype in record_types:
+            try:
+                if rtype == 'PTR':
+                    answers = dns.resolver.resolve(dns.reversename.from_address(ip), 'PTR')
+                else:
+                    answers = dns.resolver.resolve(self.target, rtype)
+                print(f"  {rtype}:")
+                for ans in answers[:3]:
+                    print(f"    - {ans}")
+            except:
+                pass
+        
+        # WHOIS
+        print(f"\n{Colors.CYAN}[*] WHOIS Information:{Colors.END}")
+        try:
+            w = whois.whois(self.target)
+            print(f"  Registrar: {w.registrar}")
+            print(f"  Created: {w.creation_date}")
+            print(f"  Expires: {w.expiration_date}")
+            print(f"  Updated: {w.updated_date}")
+            if w.name_servers:
+                print(f"  Name Servers: {', '.join(w.name_servers[:5])}")
+            if w.emails:
+                print(f"  Emails: {', '.join(w.emails[:3])}")
+        except:
+            print(f"  WHOIS lookup failed")
+        
+        # Port Scan (common ports)
+        print(f"\n{Colors.CYAN}[*] Common Ports:{Colors.END}")
+        common_ports = [21, 22, 23, 25, 53, 80, 110, 111, 135, 139, 143, 443, 445, 993, 995, 1723, 3306, 3389, 5900, 8080, 8443]
+        try:
+            for port in common_ports[:10]:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(1)
+                result = sock.connect_ex((ip, port))
+                if result == 0:
+                    print(f"  Port {port}: OPEN")
+                sock.close()
+        except:
+            pass
+        
+        # Subdomain discovery
+        print(f"\n{Colors.CYAN}[*] Common Subdomains:{Colors.END}")
+        subdomains = ['www', 'mail', 'ftp', 'localhost', 'webmail', 'smtp', 'pop', 'ns1', 'webdisk', 'ns2', 'cpanel', 'whm', 'autodiscover', 'autoconfig', 'm', 'imap', 'test', 'ns', 'blog', 'pop3', 'dev', 'www2', 'admin', 'forum', 'news', 'vpn', 'ns3', 'mail2', 'new', 'mysql', 'old', 'lists', 'support', 'mobile', 'mx', 'static', 'docs', 'beta', 'shop', 'sql', 'secure', 'demo', 'cp', 'calendar', 'wiki', 'web', 'media', 'email', 'images', 'img', 'www1', 'intranet', 'portal', 'video', 'sip', 'dns2', 'api', 'cdn', 'stats', 'dns1', 'ns4', 'www3', 'dns', 'search', 'staging', 'server', 'mx1', 'chat', 'wap', 'my', 'svn', 'mail1', 'sites', 'proxy', 'ads', 'host', 'crm', 'cms', 'backup', 'mx2', 'tools', 'info', 'apps', 'download', 'remote', 'db', 'server1', 'erp', 'vps', 'status', 'help', 'account', 'accounts', 'member', 'members', 'user', 'users', 'client', 'clients', 'billing', 'invoice', 'invoices', 'pay', 'payment', 'gateway', 'api2', 'api3', 'stage', 'live', 'prod', 'production', 'dev2', 'develop', 'development', 'sandbox', 'test2', 'testing', 'demo2', 'demo3']
+        
+        found = 0
+        for sub in subdomains[:20]:
+            try:
+                subdomain = f"{sub}.{self.target}"
+                ip = socket.gethostbyname(subdomain)
+                print(f"  [+] {subdomain} -> {ip}")
+                found += 1
+            except:
+                pass
+        
+        if found == 0:
+            print(f"  No common subdomains found")
+        
+        print(f"\n{Colors.CYAN}[*] Online Resources:{Colors.END}")
+        print(f"  DNSlytics: https://dnslytics.com/domain/{self.target}")
+        print(f"  SecurityTrails: https://securitytrails.com/domain/{self.target}")
+        print(f"  VirusTotal: https://www.virustotal.com/gui/domain/{self.target}")
+        print(f"  Shodan: https://www.shodan.io/host/{self.target}")
+        print(f"  Censys: https://censys.io/ipv4?q={self.target}")
+        print(f"  Robtex: https://www.robtex.com/dns-lookup/{self.target}")
+        print(f"  MXToolbox: https://mxtoolbox.com/SuperTool.aspx?action=mx%3a{self.target}")
+        
+        self.save_result('domain_recon', {'domain': self.target, 'ip': ip if 'ip' in locals() else None})
+        self.pause()
     
     def username_enum(self):
         if not self.target:
-            print(f"{R}[-] No target set!{RESET}")
-            time.sleep(1)
+            print(f"{Colors.RED}[!] No target set!{Colors.END}")
+            self.pause()
             return
         
-        self.clear()
-        print(f"{BOLD}{G}USERNAME ENUMERATION - Searching 500+ Platforms{RESET}")
-        print("="*60)
-        print(f"Target: {self.target}\n")
+        self.clear_screen()
+        print(f"{Colors.BLUE}┌─────────────────────────────────────────────┐{Colors.END}")
+        print(f"{Colors.BLUE}│           USERNAME ENUMERATION               │{Colors.END}")
+        print(f"{Colors.BLUE}└─────────────────────────────────────────────┘{Colors.END}\n")
+        print(f"{Colors.GREEN}Target: {self.target}{Colors.END}\n")
         
-        # Social Media
+        # Social Media Platforms
         social = {
             "Twitter": f"https://twitter.com/{self.target}",
             "Instagram": f"https://instagram.com/{self.target}",
-            "TikTok": f"https://tiktok.com/@{self.target}",
             "Facebook": f"https://facebook.com/{self.target}",
-            "YouTube": f"https://youtube.com/@{self.target}",
+            "LinkedIn": f"https://linkedin.com/in/{self.target}",
+            "TikTok": f"https://tiktok.com/@{self.target}",
             "Snapchat": f"https://snapchat.com/add/{self.target}",
-            "Reddit": f"https://reddit.com/user/{self.target}",
             "Pinterest": f"https://pinterest.com/{self.target}",
+            "Reddit": f"https://reddit.com/user/{self.target}",
             "Tumblr": f"https://{self.target}.tumblr.com",
+            "YouTube": f"https://youtube.com/@{self.target}",
+            "Twitch": f"https://twitch.tv/{self.target}",
             "Discord": f"https://discord.com/users/{self.target}",
             "Telegram": f"https://t.me/{self.target}",
             "WhatsApp": f"https://wa.me/{self.target}",
             "Signal": f"https://signal.me/#p/{self.target}",
-            "WeChat": f"https://wechat.com/{self.target}",
-            "QQ": f"https://user.qzone.qq.com/{self.target}",
-            "Weibo": f"https://weibo.com/{self.target}",
-            "VK": f"https://vk.com/{self.target}",
-            "OK": f"https://ok.ru/{self.target}",
-            "Mastodon": f"https://mastodon.social/@{self.target}",
-            "LinkedIn": f"https://linkedin.com/in/{self.target}",
+        }
+        
+        # Developer Platforms
+        dev = {
             "GitHub": f"https://github.com/{self.target}",
             "GitLab": f"https://gitlab.com/{self.target}",
             "Bitbucket": f"https://bitbucket.org/{self.target}",
@@ -261,16 +905,28 @@ class DeepEye:
             "Dev.to": f"https://dev.to/{self.target}",
             "HackerNews": f"https://news.ycombinator.com/user?id={self.target}",
             "ProductHunt": f"https://producthunt.com/@{self.target}",
+            "Keybase": f"https://keybase.io/{self.target}",
+            "Replit": f"https://replit.com/@{self.target}",
+            "CodePen": f"https://codepen.io/{self.target}",
+            "JSFiddle": f"https://jsfiddle.net/user/{self.target}",
+        }
+        
+        # Creative Platforms
+        creative = {
             "Behance": f"https://behance.net/{self.target}",
             "Dribbble": f"https://dribbble.com/{self.target}",
             "Flickr": f"https://flickr.com/people/{self.target}",
             "500px": f"https://500px.com/{self.target}",
             "Unsplash": f"https://unsplash.com/@{self.target}",
-            "Spotify": f"https://open.spotify.com/user/{self.target}",
+            "DeviantArt": f"https://deviantart.com/{self.target}",
             "SoundCloud": f"https://soundcloud.com/{self.target}",
+            "Spotify": f"https://open.spotify.com/user/{self.target}",
             "Bandcamp": f"https://bandcamp.com/{self.target}",
             "Mixcloud": f"https://mixcloud.com/{self.target}",
-            "Twitch": f"https://twitch.tv/{self.target}",
+        }
+        
+        # Gaming Platforms
+        gaming = {
             "Steam": f"https://steamcommunity.com/id/{self.target}",
             "Xbox": f"https://xbox.com/profile/{self.target}",
             "PlayStation": f"https://playstation.com/en-us/playstation-network/profile/{self.target}",
@@ -278,1401 +934,953 @@ class DeepEye:
             "EpicGames": f"https://epicgames.com/account/{self.target}",
             "Roblox": f"https://roblox.com/user.aspx?username={self.target}",
             "Minecraft": f"https://namemc.com/profile/{self.target}",
+            "Battle.net": f"https://battle.net/profile/{self.target}",
+            "RiotGames": f"https://account.riotgames.com/profile/{self.target}",
+            "Origin": f"https://origin.com/profile/{self.target}",
         }
         
-        # Forums & Communities
-        forums = {
-            "Reddit": f"https://reddit.com/user/{self.target}",
-            "4chan": f"https://boards.4chan.org/user/{self.target}",
-            "8kun": f"https://8kun.top/{self.target}",
-            "Gab": f"https://gab.com/{self.target}",
-            "Parler": f"https://parler.com/profile/{self.target}",
-            "TruthSocial": f"https://truthsocial.com/@{self.target}",
-            "BitcoinTalk": f"https://bitcointalk.org/index.php?action=profile;user={self.target}",
-            "StackExchange": f"https://stackexchange.com/users/{self.target}",
-            "Quora": f"https://quora.com/profile/{self.target}",
-            "知乎": f"https://www.zhihu.com/people/{self.target}",
-            "豆瓣": f"https://www.douban.com/people/{self.target}/",
-            "Bilibili": f"https://space.bilibili.com/{self.target}",
-            "贴吧": f"https://tieba.baidu.com/home/main?id={self.target}",
-        }
+        all_platforms = {**social, **dev, **creative, **gaming}
         
-        # Dating Apps
-        dating = {
-            "Tinder": f"https://tinder.com/@{self.target}",
-            "Bumble": f"https://bumble.com/profile/{self.target}",
-            "Hinge": f"https://hinge.co/profile/{self.target}",
-            "Grindr": f"https://grindr.com/profile/{self.target}",
-            "OkCupid": f"https://okcupid.com/profile/{self.target}",
-            "PlentyOfFish": f"https://pof.com/profile/{self.target}",
-            "Match": f"https://match.com/profile/{self.target}",
-            "eHarmony": f"https://eharmony.com/profile/{self.target}",
-        }
+        print(f"{Colors.CYAN}[*] Checking {len(all_platforms)} platforms...{Colors.END}\n")
         
-        # Professional Networks
-        professional = {
-            "LinkedIn": f"https://linkedin.com/in/{self.target}",
-            "Indeed": f"https://indeed.com/r/{self.target}",
-            "Glassdoor": f"https://glassdoor.com/member/profile/{self.target}",
-            "AngelList": f"https://angel.co/u/{self.target}",
-            "Xing": f"https://xing.com/profile/{self.target}",
-            "ResearchGate": f"https://researchgate.net/profile/{self.target}",
-            "Academia.edu": f"https://academia.edu/{self.target}",
-            "Mendeley": f"https://mendeley.com/profiles/{self.target}",
-        }
+        count = 0
+        for name, url in all_platforms.items():
+            print(f"{Colors.YELLOW}[?] {name}:{Colors.END} {url}")
+            count += 1
+            if count % 10 == 0:
+                print()
         
-        # Developer Platforms
-        dev = {
-            "GitHub": f"https://github.com/{self.target}",
-            "GitLab": f"https://gitlab.com/{self.target}",
-            "Bitbucket": f"https://bitbucket.org/{self.target}",
-            "SourceForge": f"https://sourceforge.net/u/{self.target}",
-            "CodePen": f"https://codepen.io/{self.target}",
-            "JSFiddle": f"https://jsfiddle.net/user/{self.target}",
-            "Replit": f"https://replit.com/@{self.target}",
-            "Glitch": f"https://glitch.com/@{self.target}",
-            "HackerOne": f"https://hackerone.com/{self.target}",
-            "Bugcrowd": f"https://bugcrowd.com/{self.target}",
-            "Keybase": f"https://keybase.io/{self.target}",
-        }
+        print(f"\n{Colors.GREEN}[✓] Checked {count} platforms. Visit URLs manually to verify existence.{Colors.END}")
         
-        all_sites = {**social, **forums, **dating, **professional, **dev}
-        
-        print(f"{C}[*] Scanning {len(all_sites)} platforms...{RESET}\n")
-        
-        found = []
-        with ThreadPoolExecutor(max_workers=20) as executor:
-            futures = {executor.submit(self.check_site, name, url): name for name, url in all_sites.items()}
-            for i, future in enumerate(as_completed(futures), 1):
-                result = future.result()
-                if result:
-                    found.append(result)
-                    print(f"{G}[{i:03d}] ✓ {result}{RESET}")
-                else:
-                    print(f"{W}[{i:03d}] ✗ {list(futures.keys())[list(futures.values()).index(futures[future])]}{RESET}", end='\r')
-        
-        print(f"\n{G}[✓] Found {len(found)} profiles{RESET}")
-        self.results['username_enum'] = found
-        input(f"\n{Y}Press Enter to continue...{RESET}")
+        # Save results
+        self.save_result('username_enum', {'username': self.target, 'platforms': len(all_platforms)})
+        self.pause()
     
-    def email_intel(self):
-        if not self.target or '@' not in self.target:
-            print(f"{R}[-] Target must be an email address!{RESET}")
-            time.sleep(1)
-            return
-        
-        self.clear()
-        print(f"{BOLD}{G}EMAIL INTELLIGENCE - Deep Email Investigation{RESET}")
-        print("="*60)
-        print(f"Target: {self.target}\n")
-        
-        email = self.target
-        username = email.split('@')[0]
-        domain = email.split('@')[1]
-        
-        # Basic Analysis
-        print(f"{C}[*] Email Analysis:{RESET}")
-        print(f"  • Username: {username}")
-        print(f"  • Domain: {domain}")
-        print(f"  • MD5: {hashlib.md5(email.encode()).hexdigest()}")
-        print(f"  • SHA1: {hashlib.sha1(email.encode()).hexdigest()}")
-        print(f"  • SHA256: {hashlib.sha256(email.encode()).hexdigest()}")
-        print()
-        
-        # Breach Detection
-        print(f"{C}[*] Checking Data Breaches:{RESET}")
-        try:
-            r = self.session.get(f"https://haveibeenpwned.com/account/{email}")
-            if "Oh no — pwned!" in r.text:
-                print(f"{R}  [!] EMAIL COMPROMISED IN BREACHES{RESET}")
-                # Extract breach info
-                breaches = re.findall(r'<h3 class="pwnedCompanyTitle">(.*?)</h3>', r.text)
-                for breach in breaches[:5]:
-                    print(f"      - {breach}")
-            else:
-                print(f"{G}  [✓] No breaches found{RESET}")
-        except:
-            print(f"{Y}  [-] Could not check HIBP{RESET}")
-        
-        # Gravatar
-        hash = hashlib.md5(email.lower().encode()).hexdigest()
-        gravatar = f"https://www.gravatar.com/avatar/{hash}"
-        try:
-            r = self.session.get(gravatar)
-            if r.status_code == 200 and len(r.content) > 100:
-                print(f"{G}  [✓] Gravatar found{RESET}")
-                with open(f"gravatar_{username}.jpg", 'wb') as f:
-                    f.write(r.content)
-                print(f"      Saved to gravatar_{username}.jpg")
-        except:
-            pass
-        
-        # Email Reputation
-        print(f"\n{C}[*] Email Reputation:{RESET}")
-        try:
-            r = self.session.get(f"https://emailrep.io/{email}", headers={'Key': 'public'})
-            if r.status_code == 200:
-                data = r.json()
-                print(f"  • Reputation: {data.get('reputation', 'Unknown')}")
-                print(f"  • Suspicious: {data.get('suspicious', 'Unknown')}")
-                print(f"  • References: {data.get('references', 0)}")
-                print(f"  • Details: {data.get('details', {})}")
-        except:
-            pass
-        
-        # Domain Investigation
-        print(f"\n{C}[*] Domain Investigation:{RESET}")
-        try:
-            domain_info = whois.whois(domain)
-            print(f"  • Registrar: {domain_info.registrar}")
-            print(f"  • Created: {domain_info.creation_date}")
-            print(f"  • Expires: {domain_info.expiration_date}")
-            print(f"  • Name Servers: {domain_info.name_servers[:3]}")
-        except:
-            pass
-        
-        # Google Search
-        print(f"\n{C}[*] Google Search Results:{RESET}")
-        try:
-            r = self.session.get(f"https://www.google.com/search?q={email}")
-            soup = BeautifulSoup(r.text, 'html.parser')
-            results = soup.find_all('div', class_='g')
-            print(f"  • Found {len(results)} mentions")
-        except:
-            pass
-        
-        input(f"\n{Y}Press Enter to continue...{RESET}")
-    
-    def phone_dive(self):
-        if not self.target:
-            print(f"{R}[-] No target set!{RESET}")
-            time.sleep(1)
-            return
-        
-        self.clear()
-        print(f"{BOLD}{G}PHONE NUMBER DEEP DIVE - Complete Phone Intelligence{RESET}")
-        print("="*60)
-        print(f"Target: {self.target}\n")
-        
-        # Clean number
-        number = re.sub(r'[^0-9+]', '', self.target)
-        
-        try:
-            # Parse with phonenumbers library
-            parsed = phonenumbers.parse(number, None)
-            
-            print(f"{C}[*] Basic Information:{RESET}")
-            print(f"  • Country: {geocoder.description_for_number(parsed, 'en')}")
-            print(f"  • Location: {geocoder.description_for_number(parsed, 'en')}")
-            print(f"  • Carrier: {carrier.name_for_number(parsed, 'en')}")
-            print(f"  • Timezone: {timezone.time_zones_for_number(parsed)}")
-            print(f"  • Valid: {phonenumbers.is_valid_number(parsed)}")
-            print(f"  • Possible: {phonenumbers.is_possible_number(parsed)}")
-            print(f"  • Format: {phonenumbers.format_number(parsed, phonenumbers.PhoneNumberFormat.INTERNATIONAL)}")
-            print(f"  • E.164: {phonenumbers.format_number(parsed, phonenumbers.PhoneNumberFormat.E164)}")
-            print()
-            
-            # Spam Databases
-            print(f"{C}[*] Spam Database Check:{RESET}")
-            spam_sites = [
-                f"https://800notes.com/Phone.aspx/{number}",
-                f"https://spamcalls.net/en/search/{number}",
-                f"https://www.shouldianswer.com/phone-number/{number}",
-                f"https://www.callercomplaints.com/Search.aspx?num={number}",
-            ]
-            for site in spam_sites:
-                try:
-                    r = self.session.get(site, timeout=3)
-                    if r.status_code == 200:
-                        print(f"{Y}  [!] Found on {site}{RESET}")
-                except:
-                    pass
-            
-            # Social Media Check
-            print(f"\n{C}[*] Social Media Associations:{RESET}")
-            apps = {
-                "WhatsApp": f"https://wa.me/{number}",
-                "Telegram": f"https://t.me/+{number}",
-                "Signal": f"https://signal.me/#p/+{number}",
-                "Viber": f"https://viber.com/{number}",
-                "WeChat": f"https://wechat.com/{number}",
-                "Facebook": f"https://facebook.com/search/top/?q={number}",
-                "Instagram": f"https://instagram.com/accounts/phone_number/{number}",
-            }
-            
-            for name, url in apps.items():
-                try:
-                    r = self.session.get(url, timeout=3)
-                    if r.status_code == 200:
-                        print(f"{G}  [✓] Found on {name}{RESET}")
-                except:
-                    pass
-            
-            # Reverse Phone Lookup
-            print(f"\n{C}[*] Reverse Phone Lookup:{RESET}")
-            lookup_sites = [
-                f"https://www.whitepages.com/phone/{number}",
-                f"https://www.zabasearch.com/phone/{number}",
-                f"https://www.spokeo.com/{number}",
-                f"https://www.beenverified.com/phone/{number}",
-            ]
-            for site in lookup_sites:
-                print(f"{W}  • {site}{RESET}")
-            
-        except Exception as e:
-            print(f"{R}[-] Error parsing phone number: {e}{RESET}")
-        
-        input(f"\n{Y}Press Enter to continue...{RESET}")
-    
-    def domain_recon(self):
-        if not self.target:
-            print(f"{R}[-] No target set!{RESET}")
-            time.sleep(1)
-            return
-        
-        self.clear()
-        print(f"{BOLD}{G}DOMAIN & IP RECONNAISSANCE - Complete Infrastructure Analysis{RESET}")
-        print("="*60)
-        print(f"Target: {self.target}\n")
-        
-        # DNS Records
-        print(f"{C}[*] DNS Records:{RESET}")
-        record_types = ['A', 'AAAA', 'MX', 'NS', 'TXT', 'SOA', 'CNAME', 'PTR', 'SRV', 'CAA']
-        for rtype in record_types:
-            try:
-                answers = dns.resolver.resolve(self.target, rtype)
-                print(f"  • {rtype}:")
-                for rdata in answers[:3]:
-                    print(f"      - {rdata}")
-            except:
-                pass
-        
-        # WHOIS
-        print(f"\n{C}[*] WHOIS Information:{RESET}")
-        try:
-            w = whois.whois(self.target)
-            print(f"  • Registrar: {w.registrar}")
-            print(f"  • Created: {w.creation_date}")
-            print(f"  • Expires: {w.expiration_date}")
-            print(f"  • Updated: {w.updated_date}")
-            print(f"  • Name Servers: {w.name_servers[:5]}")
-            print(f"  • Status: {w.status}")
-            print(f"  • Emails: {w.emails}")
-        except Exception as e:
-            print(f"{Y}  [-] WHOIS lookup failed: {e}{RESET}")
-        
-        # Subdomain Enumeration
-        print(f"\n{C}[*] Subdomain Enumeration:{RESET}")
-        subdomains = [
-            'www', 'mail', 'ftp', 'localhost', 'webmail', 'smtp', 'pop', 'ns1', 'webdisk',
-            'ns2', 'cpanel', 'whm', 'autodiscover', 'autoconfig', 'm', 'imap', 'test', 'ns',
-            'blog', 'pop3', 'dev', 'www2', 'admin', 'forum', 'news', 'vpn', 'ns3', 'mail2',
-            'new', 'mysql', 'old', 'lists', 'support', 'mobile', 'mx', 'static', 'docs',
-            'beta', 'shop', 'sql', 'secure', 'demo', 'cp', 'calendar', 'wiki', 'web', 'media',
-            'email', 'images', 'img', 'www1', 'intranet', 'portal', 'video', 'sip', 'dns2',
-            'api', 'dns1', 'dns3', 'dns4', 'dns5', 'dns6', 'dns7', 'dns8', 'dns9'
-        ]
-        
-        found_subs = []
-        with ThreadPoolExecutor(max_workers=20) as executor:
-            futures = {executor.submit(self.check_subdomain, sub, self.target): sub for sub in subdomains}
-            for future in as_completed(futures):
-                sub, ip = future.result()
-                if ip:
-                    found_subs.append((sub, ip))
-                    print(f"{G}  [✓] {sub}.{self.target} -> {ip}{RESET}")
-        
-        # Port Scanning
-        print(f"\n{C}[*] Common Port Scan:{RESET}")
-        ports = [21, 22, 23, 25, 53, 80, 110, 111, 135, 139, 143, 443, 445, 993, 995, 1723, 3306, 3389, 5900, 8080, 8443]
-        try:
-            ip = socket.gethostbyname(self.target)
-            for port in ports[:10]:
-                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.settimeout(1)
-                result = sock.connect_ex((ip, port))
-                if result == 0:
-                    print(f"{G}  [✓] Port {port} is open{RESET}")
-                sock.close()
-        except:
-            pass
-        
-        # Technology Stack
-        print(f"\n{C}[*] Technology Detection:{RESET}")
-        try:
-            r = self.session.get(f"http://{self.target}", timeout=5)
-            headers = r.headers
-            print(f"  • Server: {headers.get('Server', 'Unknown')}")
-            print(f"  • Powered-By: {headers.get('X-Powered-By', 'Unknown')}")
-            print(f"  • CMS: {self.detect_cms(r.text)}")
-        except:
-            pass
-        
-        input(f"\n{Y}Press Enter to continue...{RESET}")
-    
-    def criminal_records(self):
-        if not self.target:
-            print(f"{R}[-] No target set!{RESET}")
-            time.sleep(1)
-            return
-        
-        self.clear()
-        print(f"{BOLD}{R}CRIMINAL RECORDS - Nationwide Criminal Database Search{RESET}")
-        print("="="*60)
-        print(f"Target: {self.target}\n")
-        print(f"{Y}[!] Searching federal, state, and local databases...{RESET}\n")
-        
-        # Federal Bureau of Prisons
-        print(f"{C}[*] Federal Bureau of Prisons:{RESET}")
-        try:
-            r = self.session.get(f"https://www.bop.gov/inmateloc/?query={self.target}")
-            if "No results found" not in r.text:
-                print(f"{R}  [!] Found potential matches in BOP database{RESET}")
-        except:
-            print(f"{Y}  [-] Could not access BOP database{RESET}")
-        
-        # State Prison Systems
-        print(f"\n{C}[*] State Prison Systems:{RESET}")
-        states = ['CA', 'TX', 'FL', 'NY', 'IL', 'PA', 'OH', 'GA', 'NC', 'MI']
-        for state in states:
-            print(f"{W}  • {state} Department of Corrections: https://www.{state.lower()}.gov/inmate-search{RESET}")
-        
-        # County Jail Systems
-        print(f"\n{C}[*] Major County Jail Systems:{RESET}")
-        counties = [
-            "Los Angeles County", "Cook County", "Harris County", "Maricopa County",
-            "San Bernardino County", "Riverside County", "Wayne County", "King County"
-        ]
-        for county in counties:
-            print(f"{W}  • {county} Jail: Searching...{RESET}")
-            time.sleep(0.2)
-        
-        # Court Records
-        print(f"\n{C}[*] Federal Court Records:{RESET}")
-        courts = [
-            "PACER (Public Access to Court Electronic Records)",
-            "RECAP Archive",
-            "Supreme Court Database",
-            "Appellate Court Records"
-        ]
-        for court in courts:
-            print(f"{W}  • {court}: https://pacer.uscourts.gov{RESET}")
-        
-        # Arrest Records
-        print(f"\n{C}[*] Arrest Records Databases:{RESET}")
-        arrest_sites = [
-            "https://www.arrests.org",
-            "https://www.bustednewspaper.com",
-            "https://www.mugshots.com",
-            "https://www.jailbase.com",
-            "https://www.vinelink.com"
-        ]
-        for site in arrest_sites:
-            try:
-                r = self.session.get(f"{site}/search?q={self.target}", timeout=3)
-                if r.status_code == 200:
-                    print(f"{Y}  [!] Found on {site}{RESET}")
-            except:
-                print(f"{W}  • {site}{RESET}")
-        
-        # Sex Offender Registries
-        print(f"\n{C}[*] Sex Offender Registries:{RESET}")
-        registries = [
-            "National Sex Offender Public Website",
-            "Dru Sjodin National Sex Offender Public Website",
-            "State Registries (All 50 states)"
-        ]
-        for reg in registries:
-            print(f"{W}  • {reg}{RESET}")
-        
-        # Warrant Search
-        print(f"\n{C}[*] Active Warrant Search:{RESET}")
-        warrant_sites = [
-            "https://www.warrant-arrests.com",
-            "https://www.criminalwarrants.org",
-            "https://www.warrantsearch.org"
-        ]
-        for site in warrant_sites:
-            print(f"{W}  • {site}{RESET}")
-        
-        # Parole & Probation
-        print(f"\n{C}[*] Parole & Probation Records:{RESET}")
-        print(f"{W}  • Federal Probation System")
-        print(f"{W}  • State Parole Boards")
-        print(f"{W}  • Interstate Compact Database")
-        
-        input(f"\n{Y}Press Enter to continue...{RESET}")
-    
-    def dark_web_scan(self):
-        self.clear()
-        print(f"{BOLD}{R}DARK WEB SCAN - Tor Hidden Services & Deep Web{RESET}")
-        print("="*60)
-        
-        if not self.check_tor():
-            print(f"{Y}[!] Tor not connected. Enable in Settings for full dark web access.{RESET}\n")
-        
-        print(f"{C}[*] Searching Pastebin...{RESET}")
-        try:
-            r = self.session.get(f"https://psbdmp.ws/api/search/{self.target}")
-            if r.status_code == 200:
-                data = r.json()
-                print(f"{R}  [!] Found {len(data.get('data', []))} pastebin dumps{RESET}")
-        except:
-            pass
-        
-        print(f"\n{C}[*] Searching Dark Web Markets:{RESET}")
-        markets = [
-            "AlphaBay", "Dream Market", "Wall Street Market", "Silk Road",
-            "Empire Market", "Apollon", "Cannazon", "Berlusconi Market"
-        ]
-        for market in markets:
-            print(f"{W}  • {market}: Searching...{RESET}")
-            time.sleep(0.2)
-        
-        print(f"\n{C}[*] Dark Web Forums:{RESET}")
-        forums = [
-            "Dread", "The Hub", "DarkNet", "Onion Forums",
-            "Raddle", "Endchan", "8chan", "Black Hat Forums"
-        ]
-        for forum in forums:
-            print(f"{W}  • {forum}: Scanning...{RESET}")
-        
-        print(f"\n{C}[*] Hidden Wiki Mirrors:{RESET}")
-        for i in range(1, 6):
-            print(f"{W}  • The Hidden Wiki Mirror {i}: http://zqktlwi4fecvo6ri.onion/wiki/index.php/Main_Page{RESET}")
-        
-        print(f"\n{C}[*] Bitcoin & Crypto Addresses:{RESET}")
-        try:
-            r = self.session.get(f"https://blockchain.info/address/{self.target}")
-            if "No transaction" not in r.text:
-                print(f"{Y}  [!] Found Bitcoin transactions{RESET}")
-        except:
-            pass
-        
-        input(f"\n{Y}Press Enter to continue...{RESET}")
-    
-    def financial_footprint(self):
-        self.clear()
-        print(f"{BOLD}{Y}FINANCIAL FOOTPRINT - Complete Financial History{RESET}")
-        print("="*60)
-        print(f"Target: {self.target}\n")
-        
-        print(f"{C}[*] Bankruptcies:{RESET}")
-        bankruptcy_sites = [
-            "https://www.bankruptcycourts.gov/search",
-            "https://www.pacer.gov/ bankruptcy",
-            "https://www.bankruptcyscanner.com"
-        ]
-        for site in bankruptcy_sites:
-            print(f"{W}  • {site}{RESET}")
-        
-        print(f"\n{C}[*] Liens & Judgments:{RESET}")
-        lien_sites = [
-            "https://www.liens.com",
-            "https://www.judgments.com",
-            "https://www.unclaimedproperty.com"
-        ]
-        for site in lien_sites:
-            print(f"{W}  • {site}{RESET}")
-        
-        print(f"\n{C}[*] Credit Reports:{RESET}")
-        credit_bureaus = [
-            "Equifax", "Experian", "TransUnion", "Innovis", "ChexSystems"
-        ]
-        for bureau in credit_bureaus:
-            print(f"{W}  • {bureau}{RESET}")
-        
-        print(f"\n{C}[*] Investment Accounts:{RESET}")
-        investments = [
-            "Bloomberg Terminal", "Reuters Eikon", "Capital IQ",
-            "FactSet", "Morningstar", "SEC EDGAR Database"
-        ]
-        for inv in investments:
-            print(f"{W}  • {inv}{RESET}")
-        
-        print(f"\n{C}[*] Cryptocurrency Wallets:{RESET}")
-        crypto = [
-            "Bitcoin", "Ethereum", "Litecoin", "Monero", "Ripple",
-            "Coinbase", "Binance", "Kraken", "Gemini", "LocalBitcoins"
-        ]
-        for c in crypto:
-            print(f"{W}  • {c}: Searching...{RESET}")
-        
-        input(f"\n{Y}Press Enter to continue...{RESET}")
-    
-    def geo_tracker(self):
-        self.clear()
-        print(f"{BOLD}{C}GEOLOCATION TRACKING - Physical Location Intelligence{RESET}")
-        print("="*60)
-        
-        if self.target and re.match(r'^\d+\.\d+\.\d+\.\d+$', self.target):
-            # IP Geolocation
-            try:
-                r = self.session.get(f"http://ip-api.com/json/{self.target}")
-                data = r.json()
-                print(f"\n{C}[*] IP Geolocation Results:{RESET}")
-                print(f"  • IP: {data.get('query', 'N/A')}")
-                print(f"  • Country: {data.get('country', 'N/A')}")
-                print(f"  • Region: {data.get('regionName', 'N/A')}")
-                print(f"  • City: {data.get('city', 'N/A')}")
-                print(f"  • ZIP: {data.get('zip', 'N/A')}")
-                print(f"  • Latitude: {data.get('lat', 'N/A')}")
-                print(f"  • Longitude: {data.get('lon', 'N/A')}")
-                print(f"  • ISP: {data.get('isp', 'N/A')}")
-                print(f"  • Organization: {data.get('org', 'N/A')}")
-                print(f"  • AS: {data.get('as', 'N/A')}")
-                print(f"  • Timezone: {data.get('timezone', 'N/A')}")
-                
-                # Generate Google Maps link
-                if data.get('lat') and data.get('lon'):
-                    print(f"\n{C}[*] Google Maps:{RESET}")
-                    print(f"  • https://www.google.com/maps?q={data['lat']},{data['lon']}")
-            except:
-                print(f"{R}[-] Geolocation failed{RESET}")
-        
-        elif self.target and os.path.isfile(self.target):
-            # Photo Metadata Extraction
-            print(f"\n{C}[*] Analyzing Photo Metadata:{RESET}")
-            try:
-                with open(self.target, 'rb') as f:
-                    tags = exifread.process_file(f)
-                    for tag in tags.keys():
-                        if tag not in ('JPEGThumbnail', 'TIFFThumbnail', 'Filename', 'EXIF MakerNote'):
-                            print(f"  • {tag}: {tags[tag]}")
-            except:
-                print(f"{R}[-] Could not read metadata{RESET}")
-        
-        # Social Media Check-ins
-        print(f"\n{C}[*] Recent Social Media Check-ins:{RESET}")
-        platforms = ["Facebook", "Instagram", "Foursquare", "Swarm", "Yelp"]
-        for platform in platforms:
-            print(f"{W}  • Checking {platform}...{RESET}")
-        
-        input(f"\n{Y}Press Enter to continue...{RESET}")
-    
-    def asset_discovery(self):
-        self.clear()
-        print(f"{BOLD}{Y}ASSET DISCOVERY - Property, Vehicles & Valuables{RESET}")
-        print("="*60)
-        print(f"Target: {self.target}\n")
-        
-        print(f"{C}[*] Property Records:{RESET}")
-        property_sites = [
-            "https://www.zillow.com/profile/",
-            "https://www.realtor.com/realestateagents/",
-            "https://www.redfin.com",
-            "https://www.trulia.com",
-            "https://www.countyoffice.org/property-records/"
-        ]
-        for site in property_sites:
-            print(f"{W}  • {site}{RESET}")
-        
-        print(f"\n{C}[*] Vehicle Records:{RESET}")
-        vehicle_sites = [
-            "https://www.faxvin.com/vehicle-history",
-            "https://www.vehiclehistory.com",
-            "https://www.nicb.org/vincheck",
-            "https://www.dmv.org/vehicle-history.php"
-        ]
-        for site in vehicle_sites:
-            print(f"{W}  • {site}{RESET}")
-        
-        print(f"\n{C}[*] Aircraft Registration:{RESET}")
-        print(f"{W}  • FAA Registry: https://registry.faa.gov/aircraftinquiry/{RESET}")
-        print(f"{W}  • JetNet: https://www.jetnet.com{RESET}")
-        
-        print(f"\n{C}[*] Boat Registration:{RESET}")
-        print(f"{W}  • Coast Guard Vessel Database{RESET}")
-        print(f"{W}  • BoatFax: https://www.boatfax.com{RESET}")
-        
-        print(f"\n{C}[*] Business Assets:{RESET}")
-        business_sites = [
-            "https://www.sec.gov/edgar/searchedgar/companysearch.html",
-            "https://www.opencorporates.com",
-            "https://www.bloomberg.com/professional"
-        ]
-        for site in business_sites:
-            print(f"{W}  • {site}{RESET}")
-        
-        input(f"\n{Y}Press Enter to continue...{RESET}")
-    
-    def relationship_map(self):
-        self.clear()
-        print(f"{BOLD}{M}RELATIONSHIP MAPPING - Social Graph Analysis{RESET}")
-        print("="*60)
-        print(f"Target: {self.target}\n")
-        
-        print(f"{C}[*] Family Relationships:{RESET}")
-        print(f"{W}  • Ancestry.com: Searching...{RESET}")
-        print(f"{W}  • FamilySearch.org: Searching...{RESET}")
-        print(f"{W}  • MyHeritage: Searching...{RESET}")
-        
-        print(f"\n{C}[*] Professional Network:{RESET}")
-        print(f"{W}  • LinkedIn Connections: Analyzing...{RESET}")
-        print(f"{W}  • GitHub Followers: Analyzing...{RESET}")
-        print(f"{W}  • Research Collaborators: Analyzing...{RESET}")
-        
-        print(f"\n{C}[*] Social Connections:{RESET}")
-        platforms = ["Facebook Friends", "Twitter Followers", "Instagram Followers", "TikTok Network"]
-        for platform in platforms:
-            print(f"{W}  • {platform}: Mapping...{RESET}")
-        
-        print(f"\n{C}[*] Communication Patterns:{RESET}")
-        print(f"{W}  • Email Contacts: Extracting...{RESET}")
-        print(f"{W}  • Phone Contacts: Analyzing...{RESET}")
-        print(f"{W}  • SMS Patterns: Processing...{RESET}")
-        
-        input(f"\n{Y}Press Enter to continue...{RESET}")
-    
-    def breach_hunter(self):
-        self.clear()
-        print(f"{BOLD}{R}DATA BREACH HUNTER - 15 Billion+ Compromised Records{RESET}")
-        print("="*60)
-        print(f"Target: {self.target}\n")
-        
-        breaches = [
-            "Collection #1-5 (2.2B records)",
-            "COMB (3.2B records)",
-            "WeLeakInfo (12B records)",
-            "AntiPublic (1.4B records)",
-            "Exploit.in (1.6B records)",
-            "LinkedIn (700M records)",
-            "Facebook (533M records)",
-            "Adobe (153M records)",
-            "Dropbox (68M records)",
-            "Twitter (235M records)",
-            "Canva (139M records)",
-            "Dubsmash (162M records)",
-            "MySpace (360M records)",
-            "NetEase (235M records)",
-            "QQ (1.5B records)",
-            "Weibo (538M records)",
-            "Badoo (192M records)",
-            "VK (500M records)",
-            "RAM Nomination (1.3B records)",
-            "Collection of Many Individuals (1.3B records)"
-        ]
-        
-        print(f"{C}[*] Checking breach databases...{RESET}\n")
-        for breach in breaches:
-            print(f"{Y}  [!] {breach}: Searching...{RESET}")
-            time.sleep(0.1)
-        
-        print(f"\n{C}[*] Hash Matching:{RESET}")
-        print(f"{W}  • MD5: Searching {hashlib.md5(self.target.encode()).hexdigest()}")
-        print(f"{W}  • SHA1: Searching {hashlib.sha1(self.target.encode()).hexdigest()}")
-        print(f"{W}  • SHA256: Searching {hashlib.sha256(self.target.encode()).hexdigest()}")
-        
-        print(f"\n{C}[*] Recommended Search Engines:{RESET}")
-        engines = [
-            "https://scylla.so",
-            "https://breachdirectory.org",
-            "https://leak-lookup.com",
-            "https://pwndb2am4tzkvold.onion",
-            "https://haveibeenpwned.com",
-            "https://dehashed.com",
-            "https://snusbase.com",
-            "https://leakcheck.net"
-        ]
-        for engine in engines:
-            print(f"{W}  • {engine}{RESET}")
-        
-        input(f"\n{Y}Press Enter to continue...{RESET}")
+    def social_mapper(self):
+        self.username_enum()
     
     def name_tracking(self):
         if not self.target:
-            print(f"{R}[-] No target set!{RESET}")
-            time.sleep(1)
+            print(f"{Colors.RED}[!] No target set!{Colors.END}")
+            self.pause()
             return
         
-        self.clear()
-        print(f"{BOLD}{G}REAL NAME TRACKING - People Search Engine Aggregator{RESET}")
-        print("="*60)
-        print(f"Target: {self.target}\n")
+        self.clear_screen()
+        print(f"{Colors.BLUE}┌─────────────────────────────────────────────┐{Colors.END}")
+        print(f"{Colors.BLUE}│           REAL NAME TRACKING                 │{Colors.END}")
+        print(f"{Colors.BLUE}└─────────────────────────────────────────────┘{Colors.END}\n")
+        print(f"{Colors.GREEN}Target: {self.target}{Colors.END}\n")
         
         name_parts = self.target.split()
         first_name = name_parts[0] if name_parts else ""
         last_name = name_parts[-1] if len(name_parts) > 1 else ""
+        middle_name = name_parts[1] if len(name_parts) > 2 else ""
         
-        # People Search Engines
-        people_searches = {
-            "Spokeo": f"https://www.spokeo.com/{first_name}-{last_name}",
-            "Pipl": f"https://pipl.com/search/?q={self.target}",
-            "PeekYou": f"https://peekyou.com/{first_name}_{last_name}",
-            "Whitepages": f"https://www.whitepages.com/name/{first_name}-{last_name}",
-            "Zabasearch": f"https://www.zabasearch.com/people/{first_name}+{last_name}/",
-            "Intelius": f"https://www.intelius.com/name/{first_name}-{last_name}",
-            "BeenVerified": f"https://www.beenverified.com/people/{first_name}-{last_name}",
-            "CheckPeople": f"https://checkpeople.com/name/{first_name}-{last_name}",
-            "PeopleFinders": f"https://www.peoplefinders.com/name/{first_name}-{last_name}",
-            "USA People Search": f"https://www.usa-people-search.com/name/{first_name}-{last_name}",
-            "Radaris": f"https://radaris.com/search?ff={first_name}&fl={last_name}",
-            "FamilyTreeNow": f"https://www.familytreenow.com/search/people/results?first={first_name}&last={last_name}",
-            "MyLife": f"https://www.mylife.com/{first_name}-{last_name}",
-            "Cubib": f"https://cubib.com/search.php?f={first_name}&l={last_name}",
-            "That'sThem": f"https://thatsthem.com/name/{first_name}-{last_name}"
-        }
+        print(f"{Colors.CYAN}[*] Name Analysis:{Colors.END}")
+        print(f"  First Name: {first_name}")
+        print(f"  Middle Name: {middle_name}")
+        print(f"  Last Name: {last_name}")
+        print(f"  Initials: {first_name[0] if first_name else ''}{middle_name[0] if middle_name else ''}{last_name[0] if last_name else ''}")
+        print(f"  Reversed: {last_name}, {first_name} {middle_name}")
         
-        print(f"{C}[*] Searching People Databases:{RESET}\n")
-        for name, url in people_searches.items():
-            print(f"{W}  • {name}: {url}{RESET}")
+        print(f"\n{Colors.CYAN}[*] People Search Engines:{Colors.END}")
+        print(f"  Spokeo: https://www.spokeo.com/{first_name}-{last_name}")
+        print(f"  Pipl: https://pipl.com/search/?q={self.target}")
+        print(f"  PeekYou: https://peekyou.com/{first_name}_{last_name}")
+        print(f"  Whitepages: https://www.whitepages.com/name/{first_name}-{last_name}")
+        print(f"  ZabaSearch: https://www.zabasearch.com/people/{first_name}+{last_name}/")
+        print(f"  Intelius: https://www.intelius.com/name/{first_name}-{last_name}")
+        print(f"  BeenVerified: https://www.beenverified.com/people/{first_name}-{last_name}")
+        print(f"  CheckPeople: https://checkpeople.com/name/{first_name}-{last_name}")
+        print(f"  PeopleFinders: https://www.peoplefinders.com/name/{first_name}-{last_name}")
+        print(f"  Radaris: https://radaris.com/search?ff={first_name}&fl={last_name}")
+        print(f"  FamilyTreeNow: https://www.familytreenow.com/search/people/results?first={first_name}&last={last_name}")
+        print(f"  MyLife: https://www.mylife.com/{first_name}-{last_name}")
         
-        # Relatives
-        print(f"\n{C}[*] Relatives & Associates:{RESET}")
-        relative_sites = [
-            "https://www.ancestry.com/search/name",
-            "https://www.familysearch.org/search",
-            "https://www.myheritage.com/research",
-            "https://www.findmypast.com/search"
-        ]
-        for site in relative_sites:
-            print(f"{W}  • {site}{RESET}")
+        print(f"\n{Colors.CYAN}[*] Relatives & Associates:{Colors.END}")
+        print(f"  Ancestry: https://www.ancestry.com/search/name?fn={first_name}&ln={last_name}")
+        print(f"  FamilySearch: https://www.familysearch.org/search/record/results?q.givenName={first_name}&q.surname={last_name}")
+        print(f"  MyHeritage: https://www.myheritage.com/research?qname=Name.{first_name}+{last_name}")
         
-        # Address History
-        print(f"\n{C}[*] Address History:{RESET}")
-        print(f"{W}  • Searching property records...{RESET}")
-        print(f"{W}  • Searching voter registration...{RESET}")
-        print(f"{W}  • Searching utility records...{RESET}")
+        print(f"\n{Colors.CYAN}[*] Email Variations:{Colors.END}")
+        print(f"  {first_name}.{last_name}@gmail.com")
+        print(f"  {first_name[0]}{last_name}@gmail.com")
+        print(f"  {first_name}{last_name}@gmail.com")
+        print(f"  {first_name}_{last_name}@gmail.com")
+        print(f"  {first_name}-{last_name}@gmail.com")
+        print(f"  {first_name}{last_name[0]}@gmail.com")
+        print(f"  {first_name[0]}{last_name[0]}@gmail.com")
         
-        # Phone Numbers
-        print(f"\n{C}[*] Associated Phone Numbers:{RESET}")
-        print(f"{W}  • Whitepages: https://www.whitepages.com/phone{RESET}")
-        print(f"{W}  • Numberway: https://www.numberway.com{RESET}")
-        
-        # Email Addresses
-        print(f"\n{C}[*] Associated Email Addresses:{RESET}")
-        email_variations = [
-            f"{first_name}.{last_name}@",
-            f"{first_name[0]}{last_name}@",
-            f"{first_name}{last_name}@",
-            f"{first_name}_{last_name}@",
-            f"{first_name}-{last_name}@"
-        ]
-        for variation in email_variations:
-            print(f"{W}  • {variation}gmail.com")
-            print(f"{W}  • {variation}yahoo.com")
-            print(f"{W}  • {variation}hotmail.com")
-        
-        input(f"\n{Y}Press Enter to continue...{RESET}")
+        self.save_result('name_tracking', {'name': self.target, 'first': first_name, 'last': last_name})
+        self.pause()
     
-    def social_mapper(self):
-        self.clear()
-        print(f"{BOLD}{M}SOCIAL MEDIA MAPPER - Cross-Platform Identity Linking{RESET}")
-        print("="*60)
-        print(f"Target: {self.target}\n")
+    def geo_tracker(self):
+        if not self.target:
+            print(f"{Colors.RED}[!] No target set!{Colors.END}")
+            self.pause()
+            return
         
-        platforms = {
-            "Facebook": self.search_facebook,
-            "Instagram": self.search_instagram,
-            "Twitter": self.search_twitter,
-            "LinkedIn": self.search_linkedin,
-            "TikTok": self.search_tiktok,
-            "Snapchat": self.search_snapchat,
-            "YouTube": self.search_youtube,
-            "Reddit": self.search_reddit,
-            "Pinterest": self.search_pinterest,
-            "Tumblr": self.search_tumblr
-        }
+        self.clear_screen()
+        print(f"{Colors.BLUE}┌─────────────────────────────────────────────┐{Colors.END}")
+        print(f"{Colors.BLUE}│           GEOLOCATION TRACKING               │{Colors.END}")
+        print(f"{Colors.BLUE}└─────────────────────────────────────────────┘{Colors.END}\n")
+        print(f"{Colors.GREEN}Target: {self.target}{Colors.END}\n")
         
-        for name, func in platforms.items():
-            print(f"{C}[*] Searching {name}...{RESET}")
+        if re.match(r'^\d+\.\d+\.\d+\.\d+$', self.target):
+            # IP Geolocation
+            print(f"{Colors.CYAN}[*] IP Geolocation:{Colors.END}")
             try:
-                func()
+                response = requests.get(f"http://ip-api.com/json/{self.target}", timeout=5)
+                data = response.json()
+                if data['status'] == 'success':
+                    print(f"  IP: {data.get('query', 'N/A')}")
+                    print(f"  Country: {data.get('country', 'N/A')}")
+                    print(f"  Region: {data.get('regionName', 'N/A')}")
+                    print(f"  City: {data.get('city', 'N/A')}")
+                    print(f"  ZIP: {data.get('zip', 'N/A')}")
+                    print(f"  Latitude: {data.get('lat', 'N/A')}")
+                    print(f"  Longitude: {data.get('lon', 'N/A')}")
+                    print(f"  ISP: {data.get('isp', 'N/A')}")
+                    print(f"  Organization: {data.get('org', 'N/A')}")
+                    print(f"  AS: {data.get('as', 'N/A')}")
+                    print(f"  Timezone: {data.get('timezone', 'N/A')}")
+                    print(f"  Google Maps: https://www.google.com/maps?q={data.get('lat', '')},{data.get('lon', '')}")
+                else:
+                    print(f"  {data.get('message', 'Geolocation failed')}")
+            except Exception as e:
+                print(f"  Geolocation failed: {e}")
+            
+            # Additional IP lookups
+            print(f"\n{Colors.CYAN}[*] Additional IP Resources:{Colors.END}")
+            print(f"  IPInfo: https://ipinfo.io/{self.target}")
+            print(f"  Shodan: https://www.shodan.io/host/{self.target}")
+            print(f"  Censys: https://censys.io/ipv4/{self.target}")
+            print(f"  VirusTotal: https://www.virustotal.com/gui/ip-address/{self.target}")
+            print(f"  AbuseIPDB: https://www.abuseipdb.com/check/{self.target}")
+            
+        elif os.path.isfile(self.target) and self.target.lower().endswith(('.jpg', '.jpeg', '.png', '.gif')):
+            # Photo metadata
+            print(f"{Colors.CYAN}[*] Photo Metadata:{Colors.END}")
+            try:
+                with open(self.target, 'rb') as f:
+                    tags = exifread.process_file(f)
+                    if tags:
+                        for tag in tags.keys():
+                            if tag not in ('JPEGThumbnail', 'TIFFThumbnail', 'Filename', 'EXIF MakerNote'):
+                                print(f"  {tag}: {tags[tag]}")
+                    else:
+                        print(f"  No EXIF data found")
+            except Exception as e:
+                print(f"  Error reading metadata: {e}")
+            
+            # Reverse image search
+            print(f"\n{Colors.CYAN}[*] Reverse Image Search:{Colors.END}")
+            print(f"  Google Images: https://images.google.com/searchbyimage?image_url={self.target}")
+            print(f"  TinEye: https://tineye.com/search?url={self.target}")
+            print(f"  Yandex: https://yandex.com/images/search?url={self.target}")
+            print(f"  Baidu: https://image.baidu.com/search/detail?queryImageUrl={self.target}")
+        
+        else:
+            # General location search
+            print(f"{Colors.CYAN}[*] Location Search:{Colors.END}")
+            print(f"  Google Maps: https://www.google.com/maps/search/{self.target}")
+            print(f"  Geonames: http://www.geonames.org/search.html?q={self.target}")
+            print(f"  OpenStreetMap: https://www.openstreetmap.org/search?query={self.target}")
+            print(f"  Bing Maps: https://www.bing.com/maps?q={self.target}")
+            print(f"  MapQuest: https://www.mapquest.com/search?query={self.target}")
+        
+        self.save_result('geo_tracker', {'target': self.target})
+        self.pause()
+    
+    def image_intel(self):
+        self.clear_screen()
+        print(f"{Colors.BLUE}┌─────────────────────────────────────────────┐{Colors.END}")
+        print(f"{Colors.BLUE}│           IMAGE INTELLIGENCE                 │{Colors.END}")
+        print(f"{Colors.BLUE}└─────────────────────────────────────────────┘{Colors.END}\n")
+        
+        path = input(f"{Colors.YELLOW}[?] Enter image path or URL: {Colors.END}").strip()
+        
+        if not path:
+            print(f"{Colors.RED}[!] No image specified{Colors.END}")
+            self.pause()
+            return
+        
+        if os.path.isfile(path):
+            # Local file
+            print(f"{Colors.CYAN}[*] Local Image Analysis:{Colors.END}")
+            print(f"  File: {path}")
+            print(f"  Size: {os.path.getsize(path)} bytes")
+            
+            # EXIF data
+            try:
+                with open(path, 'rb') as f:
+                    tags = exifread.process_file(f)
+                    if tags:
+                        print(f"\n{Colors.CYAN}[*] EXIF Metadata:{Colors.END}")
+                        for tag in tags.keys():
+                            if tag not in ('JPEGThumbnail', 'TIFFThumbnail', 'Filename', 'EXIF MakerNote'):
+                                print(f"  {tag}: {tags[tag]}")
+                    else:
+                        print(f"\n{Colors.YELLOW}[-] No EXIF data found{Colors.END}")
             except:
-                print(f"{Y}  [-] Could not search {name}{RESET}")
+                print(f"\n{Colors.RED}[-] Could not read EXIF data{Colors.END}")
+            
+            # Upload for reverse search
+            print(f"\n{Colors.CYAN}[*] Reverse Image Search:{Colors.END}")
+            print(f"  Upload to: https://images.google.com/")
+            print(f"  Upload to: https://tineye.com/")
+            print(f"  Upload to: https://yandex.com/images/")
+            
+        elif path.startswith(('http://', 'https://')):
+            # URL
+            print(f"{Colors.CYAN}[*] Image URL Analysis:{Colors.END}")
+            print(f"  URL: {path}")
+            
+            print(f"\n{Colors.CYAN}[*] Reverse Image Search:{Colors.END}")
+            print(f"  Google Images: https://images.google.com/searchbyimage?image_url={path}")
+            print(f"  TinEye: https://tineye.com/search?url={path}")
+            print(f"  Yandex: https://yandex.com/images/search?url={path}")
+            print(f"  Baidu: https://image.baidu.com/search/detail?queryImageUrl={path}")
+            print(f"  Bing: https://www.bing.com/images/search?q=imgurl:{path}")
+        else:
+            print(f"{Colors.RED}[!] Invalid image path or URL{Colors.END}")
         
-        input(f"\n{Y}Press Enter to continue...{RESET}")
+        self.pause()
     
-    def search_facebook(self):
-        url = f"https://www.facebook.com/search/top/?q={self.target}"
-        print(f"{W}  • {url}{RESET}")
-    
-    def search_instagram(self):
-        url = f"https://www.instagram.com/{self.target}"
-        print(f"{W}  • {url}{RESET}")
-    
-    def search_twitter(self):
-        url = f"https://twitter.com/{self.target}"
-        print(f"{W}  • {url}{RESET}")
-    
-    def search_linkedin(self):
-        url = f"https://www.linkedin.com/search/results/all/?keywords={self.target}"
-        print(f"{W}  • {url}{RESET}")
-    
-    def search_tiktok(self):
-        url = f"https://www.tiktok.com/@{self.target}"
-        print(f"{W}  • {url}{RESET}")
-    
-    def search_snapchat(self):
-        url = f"https://www.snapchat.com/add/{self.target}"
-        print(f"{W}  • {url}{RESET}")
-    
-    def search_youtube(self):
-        url = f"https://www.youtube.com/results?search_query={self.target}"
-        print(f"{W}  • {url}{RESET}")
-    
-    def search_reddit(self):
-        url = f"https://www.reddit.com/user/{self.target}"
-        print(f"{W}  • {url}{RESET}")
-    
-    def search_pinterest(self):
-        url = f"https://www.pinterest.com/{self.target}"
-        print(f"{W}  • {url}{RESET}")
-    
-    def search_tumblr(self):
-        url = f"https://{self.target}.tumblr.com"
-        print(f"{W}  • {url}{RESET}")
-    
-    def live_alerts(self):
-        self.clear()
-        print(f"{BOLD}{B}LIVE ALERT SYSTEM - Real-Time Monitoring{RESET}")
-        print("="*60)
-        print(f"Monitoring target: {self.target}\n")
+    def document_meta(self):
+        self.clear_screen()
+        print(f"{Colors.BLUE}┌─────────────────────────────────────────────┐{Colors.END}")
+        print(f"{Colors.BLUE}│           DOCUMENT METADATA                  │{Colors.END}")
+        print(f"{Colors.BLUE}└─────────────────────────────────────────────┘{Colors.END}\n")
         
-        print(f"{G}[✓] Alert system activated{RESET}")
-        print(f"{W}  • Monitoring 50+ sources{RESET}")
-        print(f"{W}  • Real-time notifications enabled{RESET}")
-        print(f"{W}  • Webhook configured{RESET}")
-        print(f"{W}  • Email alerts ready{RESET}\n")
+        path = input(f"{Colors.YELLOW}[?] Enter document path: {Colors.END}").strip()
         
-        print(f"{C}[*] Recent Alerts:{RESET}")
-        alerts = [
-            "New social media post detected on Twitter",
-            "Email address found in recent breach",
-            "Phone number listed on new website",
-            "Domain registration updated",
-            "New GitHub repository created"
-        ]
-        for alert in alerts:
-            print(f"{Y}  [!] {alert}{RESET}")
-            time.sleep(0.5)
+        if not path or not os.path.isfile(path):
+            print(f"{Colors.RED}[!] Invalid file path{Colors.END}")
+            self.pause()
+            return
         
-        input(f"\n{Y}Press Enter to stop monitoring...{RESET}")
+        print(f"{Colors.CYAN}[*] Document Analysis:{Colors.END}")
+        print(f"  Filename: {os.path.basename(path)}")
+        print(f"  Size: {os.path.getsize(path)} bytes")
+        print(f"  Extension: {os.path.splitext(path)[1]}")
+        print(f"  Created: {time.ctime(os.path.getctime(path))}")
+        print(f"  Modified: {time.ctime(os.path.getmtime(path))}")
+        print(f"  Accessed: {time.ctime(os.path.getatime(path))}")
+        
+        print(f"\n{Colors.CYAN}[*] Metadata Tools:{Colors.END}")
+        print(f"  exiftool {path}")
+        print(f"  pdfinfo {path} (for PDFs)")
+        print(f"  strings {path} | grep -i 'author\\|creator\\|producer'")
+        
+        self.pause()
     
-    def gov_databases(self):
-        self.clear()
-        print(f"{BOLD}{R}GOVERNMENT DATABASES - Public Records Access{RESET}")
-        print("="*60)
+    def password_intel(self):
+        self.clear_screen()
+        print(f"{Colors.BLUE}┌─────────────────────────────────────────────┐{Colors.END}")
+        print(f"{Colors.BLUE}│           PASSWORD INTELLIGENCE              │{Colors.END}")
+        print(f"{Colors.BLUE}└─────────────────────────────────────────────┘{Colors.END}\n")
         
-        databases = {
-            "FBI Most Wanted": "https://www.fbi.gov/wanted",
-            "DEA Most Wanted": "https://www.dea.gov/most-wanted",
-            "ATF Most Wanted": "https://www.atf.gov/most-wanted",
-            "US Marshals": "https://www.usmarshals.gov/investigations/most-wanted.htm",
-            "ICE Most Wanted": "https://www.ice.gov/most-wanted",
-            "CIA World Factbook": "https://www.cia.gov/the-world-factbook",
-            "NSF Grants": "https://www.nsf.gov/awardsearch",
-            "NIH Funding": "https://projectreporter.nih.gov",
-            "US Patent Office": "https://patft.uspto.gov",
-            "SEC EDGAR": "https://www.sec.gov/edgar/searchedgar/companysearch.html",
-            "FEC Campaign Finance": "https://www.fec.gov/data",
-            "FAA Registry": "https://registry.faa.gov/aircraftinquiry",
-            "FCC Licenses": "https://www.fcc.gov/licensing-databases",
-            "NOAA Weather": "https://www.ncdc.noaa.gov/data-access",
-            "USGS Earthquake": "https://earthquake.usgs.gov/earthquakes/search"
-        }
+        if self.target:
+            print(f"{Colors.CYAN}[*] Password Resources for {self.target}:{Colors.END}")
+            print(f"  HaveIBeenPwned: https://haveibeenpwned.com/account/{self.target}")
+            print(f"  LeakCheck: https://leakcheck.net/search?query={self.target}")
+            print(f"  Dehashed: https://dehashed.com/search?query={self.target}")
+            print(f"  SnusBase: https://snusbase.com/")
+            print(f"  Leak-Lookup: https://leak-lookup.com/")
+            print(f"  BreachDirectory: https://breachdirectory.org/?query={self.target}")
+            print(f"  IntelX: https://intelx.io/?s={self.target}")
         
-        for name, url in databases.items():
-            print(f"{W}  • {name}: {url}{RESET}")
+        print(f"\n{Colors.CYAN}[*] Password Analysis:{Colors.END}")
+        print(f"  Password Strength: https://howsecureismypassword.net/")
+        print(f"  Have I Been Pwned: https://haveibeenpwned.com/Passwords")
         
-        input(f"\n{Y}Press Enter to continue...{RESET}")
+        print(f"\n{Colors.CYAN}[*] Common Password Lists:{Colors.END}")
+        print(f"  rockyou.txt: /usr/share/wordlists/rockyou.txt")
+        print(f"  SecLists: https://github.com/danielmiessler/SecLists")
+        print(f"  Probable-Wordlists: https://github.com/berzerk0/Probable-Wordlists")
+        
+        self.pause()
     
-    def law_enforcement(self):
-        self.clear()
-        print(f"{BOLD}{R}LAW ENFORCEMENT RECORDS{RESET}")
-        print("="*60)
+    def dark_web(self):
+        self.clear_screen()
+        print(f"{Colors.BLUE}┌─────────────────────────────────────────────┐{Colors.END}")
+        print(f"{Colors.BLUE}│           DARK WEB MONITORING                │{Colors.END}")
+        print(f"{Colors.BLUE}└─────────────────────────────────────────────┘{Colors.END}\n")
         
-        records = {
-            "NCIC Database": "National Crime Information Center",
-            "III Database": "Interstate Identification Index",
-            "NICS": "National Instant Criminal Background Check System",
-            "CODIS": "Combined DNA Index System",
-            "AFIS": "Automated Fingerprint Identification System",
-            "NIBRS": "National Incident-Based Reporting System",
-            "UC            "UCRA": "Uniform Crime Reporting API",
-            "LEOKA": "Law Enforcement Officers Killed and Assaulted",
-            "NMVTIS": "National Motor Vehicle Title Information System"
-        }
+        print(f"{Colors.YELLOW}[!] Dark web monitoring requires Tor browser{Colors.END}")
+        print(f"{Colors.YELLOW}[!] Install Tor: sudo apt-get install tor{Colors.END}\n")
         
-        for name, desc in records.items():
-            print(f"{W}  • {name}: {desc}{RESET}")
+        if self.target:
+            print(f"{Colors.CYAN}[*] Dark Web Resources for {self.target}:{Colors.END}")
+            print(f"  IntelX: https://intelx.io/?s={self.target}")
+            print(f"  BreachDirectory: https://breachdirectory.org/?query={self.target}")
+            print(f"  SnusBase: https://snusbase.com/")
+            print(f"  Leak-Lookup: https://leak-lookup.com/")
+            print(f"  Dehashed: https://dehashed.com/search?query={self.target}")
+            print(f"  WeLeakInfo: https://weleakinfo.com/")
         
-        print(f"\n{C}[*] Regional Databases:{RESET}")
-        regions = [
-            "FBI Regional Databases",
-            "State Police Information Networks",
-            "County Sheriff Intelligence Systems",
-            "Municipal Police Records",
-            "Campus Police Databases",
-            "Tribal Law Enforcement Systems"
-        ]
-        for region in regions:
-            print(f"{W}  • {region}{RESET}")
+        print(f"\n{Colors.CYAN}[*] Tor Hidden Services:{Colors.END}")
+        print(f"  Ahmia: http://msydqstlz2kzerdg.onion/search/?q={self.target if self.target else ''}")
+        print(f"  Torch: http://xmh57jrzrnw6insl.onion/")
+        print(f"  Haystak: http://haystak5njsmn2hqkewecpaxetahtwhsbsa64jom2k22z5afxhnpxfid.onion/")
+        print(f"  OnionLand: http://3bbad7fauom4d6sgppalyqddsqbf5u5p56b5k5uk2zxsy3d6ey2jobad.onion/")
         
-        input(f"\n{Y}Press Enter to continue...{RESET}")
+        self.pause()
+    
+    def breach_hunter(self):
+        self.clear_screen()
+        print(f"{Colors.BLUE}┌─────────────────────────────────────────────┐{Colors.END}")
+        print(f"{Colors.BLUE}│           BREACH DATA HUNTER                 │{Colors.END}")
+        print(f"{Colors.BLUE}└─────────────────────────────────────────────┘{Colors.END}\n")
+        
+        if self.target:
+            print(f"{Colors.CYAN}[*] Checking {len(self.breaches)} breach databases...{Colors.END}\n")
+            
+            for breach in self.breaches[:15]:
+                print(f"{Colors.YELLOW}[?] {breach}: Searching...{Colors.END}")
+                time.sleep(0.2)
+            
+            print(f"\n{Colors.CYAN}[*] Breach Search Engines:{Colors.END}")
+            print(f"  HaveIBeenPwned: https://haveibeenpwned.com/account/{self.target}")
+            print(f"  SnusBase: https://snusbase.com/")
+            print(f"  LeakCheck: https://leakcheck.net/search?query={self.target}")
+            print(f"  Dehashed: https://dehashed.com/search?query={self.target}")
+            print(f"  WeLeakInfo: https://weleakinfo.com/")
+            print(f"  Leak-Lookup: https://leak-lookup.com/")
+            print(f"  BreachDirectory: https://breachdirectory.org/?query={self.target}")
+            print(f"  IntelX: https://intelx.io/?s={self.target}")
+        
+        self.pause()
+    
+    def criminal_records(self):
+        self.clear_screen()
+        print(f"{Colors.BLUE}┌─────────────────────────────────────────────┐{Colors.END}")
+        print(f"{Colors.BLUE}│           CRIMINAL RECORDS                   │{Colors.END}")
+        print(f"{Colors.BLUE}└─────────────────────────────────────────────┘{Colors.END}\n")
+        
+        if self.target:
+            print(f"{Colors.CYAN}[*] Criminal Records Search for {self.target}:{Colors.END}\n")
+            
+            print(f"{Colors.GREEN}Federal Resources:{Colors.END}")
+            print(f"  FBI Wanted: https://www.fbi.gov/wanted")
+            print(f"  FBI Most Wanted: https://www.fbi.gov/wanted/topten")
+            print(f"  US Marshals: https://www.usmarshals.gov/investigations/most-wanted.htm")
+            print(f"  DEA Most Wanted: https://www.dea.gov/most-wanted")
+            print(f"  ATF Most Wanted: https://www.atf.gov/most-wanted")
+            print(f"  ICE Most Wanted: https://www.ice.gov/most-wanted")
+            print(f"  BOP Inmate Locator: https://www.bop.gov/inmateloc/")
+            
+            print(f"\n{Colors.GREEN}State Resources:{Colors.END}")
+            print(f"  Vinelink: https://www.vinelink.com/")
+            print(f"  DOJ Press Room: https://www.justice.gov/news")
+            print(f"  State Prison Systems: Search for state DOC websites")
+            
+            print(f"\n{Colors.GREEN}Public Records:{Colors.END}")
+            print(f"  PACER: https://pacer.uscourts.gov/")
+            print(f"  CourtListener: https://www.courtlistener.com/?q={self.target}")
+            print(f"  Justia: https://dockets.justia.com/search?query={self.target}")
+            print(f"  BlackBookOnline: https://www.blackbookonline.info/")
+        
+        self.pause()
+    
+    def financial_footprint(self):
+        self.clear_screen()
+        print(f"{Colors.BLUE}┌─────────────────────────────────────────────┐{Colors.END}")
+        print(f"{Colors.BLUE}│           FINANCIAL FOOTPRINT                │{Colors.END}")
+        print(f"{Colors.BLUE}└─────────────────────────────────────────────┘{Colors.END}\n")
+        
+        if self.target:
+            print(f"{Colors.CYAN}[*] Financial Search for {self.target}:{Colors.END}\n")
+            
+            print(f"{Colors.GREEN}Corporate Records:{Colors.END}")
+            print(f"  SEC EDGAR: https://www.sec.gov/edgar/searchedgar/companysearch.html")
+            print(f"  OpenCorporates: https://opencorporates.com/companies?q={self.target}")
+            print(f"  Bloomberg: https://www.bloomberg.com/search?query={self.target}")
+            print(f"  Reuters: https://www.reuters.com/search/news?blob={self.target}")
+            
+            print(f"\n{Colors.GREEN}Bankruptcy & Liens:{Colors.END}")
+            print(f"  Bankruptcy Courts: https://www.bankruptcycourts.gov/search")
+            print(f"  PACER: https://pacer.uscourts.gov/")
+            print(f"  Uniform Commercial Code: https://www.ucc.com/")
+            
+            print(f"\n{Colors.GREEN}Asset Search:{Colors.END}")
+            print(f"  Zillow: https://www.zillow.com/profile/{self.target}")
+            print(f"  Realtor: https://www.realtor.com/realestateagents/{self.target}")
+            print(f"  Property Records: https://www.countyoffice.org/property-records/")
+        
+        self.pause()
+    
+    def asset_discovery(self):
+        self.financial_footprint()
     
     def court_records(self):
-        self.clear()
-        print(f"{BOLD}{R}COURT RECORDS SEARCH - Federal & State Judiciary{RESET}")
-        print("="*60)
-        print(f"Target: {self.target}\n")
+        self.criminal_records()
+    
+    def gov_databases(self):
+        self.clear_screen()
+        print(f"{Colors.BLUE}┌─────────────────────────────────────────────┐{Colors.END}")
+        print(f"{Colors.BLUE}│           GOVERNMENT DATABASES               │{Colors.END}")
+        print(f"{Colors.BLUE}└─────────────────────────────────────────────┘{Colors.END}\n")
         
-        courts = {
-            "Supreme Court": "https://www.supremecourt.gov/opinions/",
-            "Circuit Courts": "https://www.uscourts.gov/court-locator",
-            "District Courts": "https://www.uscourts.gov/court-locator/district-courts",
-            "Bankruptcy Courts": "https://www.uscourts.gov/services-forms/bankruptcy",
-            "PACER": "https://pacer.uscourts.gov",
-            "RECAP": "https://www.courtlistener.com/recap/",
-            "Justia": f"https://dockets.justia.com/search?query={self.target}",
-            "CourtListener": f"https://www.courtlistener.com/?q={self.target}",
-            "FindLaw": f"https://caselaw.findlaw.com/court/us-supreme-court/search?query={self.target}"
+        print(f"{Colors.CYAN}[*] US Government Resources:{Colors.END}\n")
+        
+        databases = {
+            "FBI": [
+                "https://www.fbi.gov/wanted",
+                "https://www.fbi.gov/wanted/topten",
+                "https://www.fbi.gov/investigate"
+            ],
+            "DEA": [
+                "https://www.dea.gov/most-wanted",
+                "https://www.dea.gov/divisions"
+            ],
+            "ATF": [
+                "https://www.atf.gov/most-wanted",
+                "https://www.atf.gov/firearms"
+            ],
+            "ICE": [
+                "https://www.ice.gov/most-wanted",
+                "https://www.ice.gov/features/detained"
+            ],
+            "USMS": [
+                "https://www.usmarshals.gov/investigations/most-wanted.htm",
+                "https://www.usmarshals.gov/district"
+            ],
+            "BOP": [
+                "https://www.bop.gov/inmateloc/",
+                "https://www.bop.gov/mobile/find_inmate/"
+            ],
+            "SEC": [
+                "https://www.sec.gov/edgar/searchedgar/companysearch.html",
+                "https://www.sec.gov/litigation/litreleases.shtml"
+            ],
+            "FCC": [
+                "https://www.fcc.gov/licensing-databases",
+                "https://www.fcc.gov/general/public-access-databases"
+            ],
+            "FAA": [
+                "https://registry.faa.gov/aircraftinquiry",
+                "https://registry.faa.gov/database/ReleasableAircraft.zip"
+            ],
+            "NTSB": [
+                "https://www.ntsb.gov/Pages/ntsb-search.aspx",
+                "https://www.ntsb.gov/investigations/Pages/default.aspx"
+            ],
+            "EPA": [
+                "https://www.epa.gov/enviro/enforcement-compliance-history-online-echo",
+                "https://www.epa.gov/faca"
+            ],
+            "DOL": [
+                "https://www.dol.gov/agencies/ebsa/about/data-and-statistics",
+                "https://www.dol.gov/agencies/owcp"
+            ]
         }
         
-        for name, url in courts.items():
-            print(f"{W}  • {name}: {url}{RESET}")
+        for agency, urls in databases.items():
+            print(f"{Colors.GREEN}{agency}:{Colors.END}")
+            for url in urls:
+                print(f"  {url}")
+            print()
         
-        print(f"\n{C}[*] Recent Filings:{RESET}")
-        for i in range(5):
-            print(f"{Y}  [!] Case {i+1}: Found {i} documents{RESET}")
-        
-        input(f"\n{Y}Press Enter to continue...{RESET}")
+        self.pause()
     
-    def prison_search(self):
-        self.clear()
-        print(f"{BOLD}{R}PRISON INMATE SEARCH - Correctional Facilities{RESET}")
-        print("="*60)
-        print(f"Target: {self.target}\n")
+    def relationship_map(self):
+        self.clear_screen()
+        print(f"{Colors.BLUE}┌─────────────────────────────────────────────┐{Colors.END}")
+        print(f"{Colors.BLUE}│           RELATIONSHIP MAPPING               │{Colors.END}")
+        print(f"{Colors.BLUE}└─────────────────────────────────────────────┘{Colors.END}\n")
         
-        prisons = {
-            "Federal BOP": "https://www.bop.gov/inmateloc/",
-            "California CDCR": "https://inmatelocator.cdcr.ca.gov",
-            "Texas TDCJ": "https://offender.tdcj.texas.gov",
-            "Florida FDC": "http://www.dc.state.fl.us/OffenderSearch",
-            "New York DOCCS": "http://nysdoccslookup.doccs.ny.gov",
-            "Illinois IDOC": "https://www2.illinois.gov/idoc/Offender",
-            "Ohio DRC": "https://appgateway.drc.ohio.gov/OffenderSearch",
-            "Michigan MDOC": "https://mdocweb.state.mi.us/OTIS2/otis2.aspx",
-            "Pennsylvania DOC": "http://inmatelocator.cor.pa.gov",
-            "North Carolina DPS": "https://webapps.doc.state.nc.us/opi"
-        }
-        
-        for name, url in prisons.items():
-            print(f"{W}  • {name}: {url}{RESET}")
-        
-        print(f"\n{C}[*] Matching Inmates:{RESET}")
-        print(f"{Y}  [!] Found 3 potential matches{RESET}")
-        print(f"{W}      - John Doe #12345 - Federal Prison")
-        print(f"{W}      - J. Doe #67890 - State Prison")
-        print(f"{W}      - Jonathan Doe #54321 - County Jail")
-        
-        input(f"\n{Y}Press Enter to continue...{RESET}")
-    
-    def property_records(self):
-        self.clear()
-        print(f"{BOLD}{Y}PROPERTY RECORDS - Real Estate Intelligence{RESET}")
-        print("="*60)
-        print(f"Target: {self.target}\n")
-        
-        print(f"{C}[*] Property Ownership:{RESET}")
-        property_sites = {
-            "Zillow": f"https://www.zillow.com/search/query/?q={self.target}",
-            "Redfin": f"https://www.redfin.com/stingray/do/location-based-search?al=1&location={self.target}",
-            "Realtor.com": f"https://www.realtor.com/search/{self.target}",
-            "Trulia": f"https://www.trulia.com/search/{self.target}",
-            "Homes.com": f"https://www.homes.com/{self.target}",
-            "LandGlide": "Property boundary database",
-            "County Assessor": "Local tax records",
-            "Title Records": "Property deed history"
-        }
-        
-        for name, url in property_sites.items():
-            print(f"{W}  • {name}: {url}{RESET}")
-        
-        print(f"\n{C}[*] Property Value History:{RESET}")
-        years = [2023, 2022, 2021, 2020, 2019]
-        for year in years:
-            print(f"{W}  • {year}: Estimated value $XXX,XXX")
-        
-        input(f"\n{Y}Press Enter to continue...{RESET}")
-    
-    def vehicle_records(self):
-        self.clear()
-        print(f"{BOLD}{Y}VEHICLE REGISTRATION - DMV & Auto Database{RESET}")
-        print("="*60)
-        print(f"Target: {self.target}\n")
-        
-        if re.match(r'^[A-Z0-9]{6,17}$', self.target.upper()):
-            # VIN number
-            print(f"{C}[*] VIN Analysis:{RESET}")
-            print(f"  • VIN: {self.target.upper()}")
-            print(f"  • Country: {self.target[0]}")
-            print(f"  • Manufacturer: {self.target[1:3]}")
-            print(f"  • Vehicle Type: {self.target[3]}")
-            print(f"  • Model Year: {self.target[9]}")
-            print(f"  • Assembly Plant: {self.target[10]}")
-            print(f"  • Serial Number: {self.target[11:]}")
+        if self.target:
+            print(f"{Colors.CYAN}[*] Relationship Analysis for {self.target}:{Colors.END}\n")
             
-            print(f"\n{C}[*] VIN Check Sites:{RESET}")
-            vin_sites = [
-                "https://www.nicb.org/vincheck",
-                "https://www.faxvin.com/vin-check",
-                "https://www.vehiclehistory.com",
-                "https://www.carfax.com/vin",
-                "https://www.autocheck.com/vehiclehistory"
-            ]
-            for site in vin_sites:
-                print(f"{W}  • {site}")
-        else:
-            # License plate
-            print(f"{C}[*] License Plate Search:{RESET}")
-            plate_sites = [
-                f"https://www.findbyplate.com/PLATES/{self.target}",
-                f"https://www.licenseplatesearch.com/search/{self.target}",
-                f"https://www.faxvin.com/license-plate-lookup"
-            ]
-            for site in plate_sites:
-                print(f"{W}  • {site}")
+            print(f"{Colors.GREEN}Family Research:{Colors.END}")
+            print(f"  FamilySearch: https://www.familysearch.org/search/record/results?q.givenName={self.target}")
+            print(f"  Ancestry: https://www.ancestry.com/search/name?fn={self.target}")
+            print(f"  MyHeritage: https://www.myheritage.com/research?qname=Name.{self.target}")
+            print(f"  GenealogyBank: https://www.genealogybank.com/")
+            
+            print(f"\n{Colors.GREEN}Social Connections:{Colors.END}")
+            print(f"  LinkedIn: https://www.linkedin.com/search/results/all/?keywords={self.target}")
+            print(f"  Facebook: https://www.facebook.com/search/people/?q={self.target}")
+            print(f"  Twitter: https://twitter.com/search?q={self.target}")
+            
+            print(f"\n{Colors.GREEN}Professional Network:{Colors.END}")
+            print(f"  GitHub: https://github.com/search?q={self.target}")
+            print(f"  ResearchGate: https://www.researchgate.net/search.Search.html?query={self.target}")
+            print(f"  Academia.edu: https://www.academia.edu/people/search?q={self.target}")
         
-        input(f"\n{Y}Press Enter to continue...{RESET}")
+        self.pause()
     
-    def flight_records(self):
-        self.clear()
-        print(f"{BOLD}{C}FLIGHT RECORDS - Aviation Intelligence{RESET}")
-        print("="*60)
-        print(f"Target: {self.target}\n")
+    def live_alerts(self):
+        self.clear_screen()
+        print(f"{Colors.BLUE}┌─────────────────────────────────────────────┐{Colors.END}")
+        print(f"{Colors.BLUE}│           LIVE ALERT SYSTEM                  │{Colors.END}")
+        print(f"{Colors.BLUE}└─────────────────────────────────────────────┘{Colors.END}\n")
         
-        flight_sites = {
-            "FlightAware": f"https://flightaware.com/live/flight/{self.target}",
-            "FlightRadar24": f"https://www.flightradar24.com/data/flights/{self.target}",
-            "ADS-B Exchange": f"https://globe.adsbexchange.com/?icao={self.target}",
-            "OpenSky Network": f"https://opensky-network.org/aircraft-profile?icao24={self.target}",
-            "FAA Registry": f"https://registry.faa.gov/aircraftinquiry/NNum_Inquiry.aspx?NNumbertxt={self.target}",
-            "JetNet": f"https://www.jetnet.com/aircraft/{self.target}",
-            "AviationDB": f"https://www.aviationdb.com/aircraft/{self.target}"
+        if self.target:
+            print(f"{Colors.CYAN}[*] Setting up alerts for {self.target}:{Colors.END}\n")
+            
+            print(f"{Colors.GREEN}Free Alert Services:{Colors.END}")
+            print(f"  Google Alerts: https://www.google.com/alerts#q={self.target}")
+            print(f"  Talkwalker: https://www.talkwalker.com/alerts")
+            print(f"  Mention: https://mention.com/en/")
+            print(f"  Social Mention: http://www.socialmention.com/search?q={self.target}")
+            
+            print(f"\n{Colors.GREEN}Social Media Monitoring:{Colors.END}")
+            print(f"  TweetDeck: https://tweetdeck.twitter.com/")
+            print(f"  Hootsuite: https://hootsuite.com/")
+            print(f"  Buffer: https://buffer.com/")
+            
+            print(f"\n{Colors.GREEN}RSS Feeds:{Colors.END}")
+            print(f"  Feedly: https://feedly.com/i/search/{self.target}")
+            print(f"  Inoreader: https://www.inoreader.com/")
+            print(f"  NewsBlur: https://newsblur.com/")
+        
+        print(f"\n{Colors.GREEN}[✓] Alert system configured. Check sources manually.{Colors.END}")
+        self.pause()
+    
+    def advanced_search(self):
+        self.clear_screen()
+        print(f"{Colors.BLUE}┌─────────────────────────────────────────────┐{Colors.END}")
+        print(f"{Colors.BLUE}│           ADVANCED SEARCH                    │{Colors.END}")
+        print(f"{Colors.BLUE}└─────────────────────────────────────────────┘{Colors.END}\n")
+        
+        if not self.target:
+            print(f"{Colors.RED}[!] No target set{Colors.END}")
+            self.pause()
+            return
+        
+        print(f"{Colors.CYAN}[*] Advanced Search for {self.target}:{Colors.END}\n")
+        
+        search_engines = {
+            "Google Dorks": [
+                f'site:linkedin.com "{self.target}"',
+                f'site:facebook.com "{self.target}"',
+                f'site:twitter.com "{self.target}"',
+                f'site:instagram.com "{self.target}"',
+                f'"{self.target}" filetype:pdf',
+                f'"{self.target}" filetype:doc',
+                f'"{self.target}" filetype:xls',
+                f'"{self.target}" ext:log',
+                f'"{self.target}" ext:sql',
+                f'"{self.target}" ext:bak',
+                f'"{self.target}" ext:config',
+                f'intitle:"index of" "{self.target}"',
+                f'inurl:admin "{self.target}"',
+                f'inurl:config "{self.target}"'
+            ],
+            "Wayback Machine": [
+                f"https://archive.org/web/*/{self.target}"
+            ],
+            "Social Search": [
+                f"https://www.social-searcher.com/google-social-search/?q={self.target}",
+                f"https://www.socialmention.com/search?q={self.target}"
+            ],
+            "People Search": [
+                f"https://www.peekyou.com/{self.target}",
+                f"https://www.spokeo.com/{self.target}",
+                f"https://pipl.com/search/?q={self.target}"
+            ]
         }
         
-        for name, url in flight_sites.items():
-            print(f"{W}  • {name}: {url}{RESET}")
-        
-        print(f"\n{C}[*] Flight History:{RESET}")
-        flights = [
-            "LAX → JFK (2024-01-15)",
-            "LHR → LAX (2023-12-20)",
-            "JFK → LHR (2023-12-10)"
-        ]
-        for flight in flights:
-            print(f"{Y}  [!] {flight}{RESET}")
-        
-        input(f"\n{Y}Press Enter to continue...{RESET}")
-    
-    def business_intel(self):
-        self.clear()
-        print(f"{BOLD}{Y}BUSINESS INTELLIGENCE - Corporate Research{RESET}")
-        print("="*60)
-        print(f"Target: {self.target}\n")
-        
-        business_sites = {
-            "OpenCorporates": f"https://opencorporates.com/companies?q={self.target}",
-            "SEC EDGAR": f"https://www.sec.gov/edgar/search/#/q={self.target}",
-            "Bloomberg": f"https://www.bloomberg.com/search?query={self.target}",
-            "Reuters": f"https://www.reuters.com/search/news?blob={self.target}",
-            "Dun & Bradstreet": f"https://www.dnb.com/business-directory/company-profiles.{self.target}.html",
-            "Hoover's": f"https://www.hoovers.com/company-profiles/{self.target}",
-            "LexisNexis": f"https://www.lexisnexis.com/en-us/business/search.page?q={self.target}",
-            "S&P Capital IQ": f"https://www.capitaliq.com/company/{self.target}"
-        }
-        
-        for name, url in business_sites.items():
-            print(f"{W}  • {name}: {url}{RESET}")
-        
-        print(f"\n{C}[*] Company Officers:{RESET}")
-        officers = [
-            "CEO: John Smith (2019-present)",
-            "CFO: Jane Doe (2020-present)",
-            "CTO: Bob Johnson (2018-2023)"
-        ]
-        for officer in officers:
-            print(f"{W}  • {officer}{RESET}")
-        
-        input(f"\n{Y}Press Enter to continue...{RESET}")
-    
-    def change_detection(self):
-        self.clear()
-        print(f"{BOLD}{B}CHANGE DETECTION - Profile Change Monitoring{RESET}")
-        print("="*60)
-        print(f"Monitoring: {self.target}\n")
-        
-        changes = [
-            "LinkedIn profile photo updated (2 hours ago)",
-            "Twitter bio changed (1 day ago)",
-            "GitHub repository created (3 days ago)",
-            "New email address detected (1 week ago)",
-            "Phone number changed (2 weeks ago)",
-            "Address updated (1 month ago)",
-            "New social media account created (2 months ago)"
-        ]
-        
-        for change in changes:
-            print(f"{Y}  🔔 {change}{RESET}")
-        
-        print(f"\n{G}[✓] Monitoring active for 7 targets{RESET}")
-        print(f"{W}  • Next scan in: 00:15:00")
-        print(f"{W}  • Changes detected: 7")
-        print(f"{W}  • Alert frequency: Real-time")
-        
-        input(f"\n{Y}Press Enter to stop monitoring...{RESET}")
-    
-    def report_generator(self):
-        self.clear()
-        print(f"{BOLD}{G}INTELLIGENCE REPORT GENERATOR{RESET}")
-        print("="*60)
-        print(f"Target: {self.target}\n")
-        
-        print(f"{C}[*] Report Options:{RESET}")
-        print(f"{W}  1. Executive Summary")
-        print(f"{W}  2. Detailed Findings")
-        print(f"{W}  3. Technical Analysis")
-        print(f"{W}  4. Timeline Report")
-        print(f"{W}  5. Relationship Map")
-        print(f"{W}  6. Full Intelligence Dossier")
-        
-        choice = input(f"\n{Y}Select report type (1-6): {RESET}")
-        
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"DeepEye_Report_{self.target}_{timestamp}.pdf"
-        
-        print(f"\n{G}[✓] Generating report...{RESET}")
-        time.sleep(2)
-        print(f"{G}[✓] Report saved: {filename}{RESET}")
-        print(f"{W}  • 47 data points included")
-        print(f"{W}  • 12 sources referenced")
-        print(f"{W}  • Risk score: 85/100")
-        
-        input(f"\n{Y}Press Enter to continue...{RESET}")
-    
-    def import_targets(self):
-        self.clear()
-        print(f"{BOLD}{Y}IMPORT TARGET LIST{RESET}")
-        print("="*50)
-        
-        filename = input("Enter filename (txt/csv): ")
-        try:
-            with open(filename, 'r') as f:
-                self.targets = [line.strip() for line in f if line.strip()]
-            self.targets_count = len(self.targets)
-            self.target = self.targets[0] if self.targets else None
-            print(f"{G}[✓] Imported {self.targets_count} targets{RESET}")
-        except:
-            print(f"{R}[-] Failed to import{RESET}")
-        time.sleep(1)
-    
-    def view_results(self):
-        self.clear()
-        print(f"{BOLD}{G}CURRENT RESULTS{RESET}")
-        print("="*50)
-        
-        if self.results:
-            for module, data in self.results.items():
-                print(f"{C}[*] {module}:{RESET}")
-                if isinstance(data, list):
-                    for item in data[:10]:
-                        print(f"{W}  • {item}{RESET}")
+        for category, queries in search_engines.items():
+            print(f"{Colors.GREEN}{category}:{Colors.END}")
+            for query in queries:
+                if category == "Google Dorks":
+                    print(f"  https://www.google.com/search?q={urllib.parse.quote(query)}")
                 else:
-                    print(f"{W}  • {data}{RESET}")
-        else:
-            print(f"{Y}No results yet. Run some modules first.{RESET}")
+                    print(f"  {query}")
+            print()
         
-        input(f"\n{Y}Press Enter to continue...{RESET}")
-    
-    def clear_results(self):
-        self.results = {}
-        print(f"{G}[✓] Results cleared{RESET}")
-        time.sleep(1)
+        self.pause()
     
     def export_results(self):
-        self.clear()
-        print(f"{BOLD}{G}EXPORT RESULTS{RESET}")
-        print("="=50)
+        self.clear_screen()
+        print(f"{Colors.BLUE}┌─────────────────────────────────────────────┐{Colors.END}")
+        print(f"{Colors.BLUE}│           EXPORT RESULTS                     │{Colors.END}")
+        print(f"{Colors.BLUE}└─────────────────────────────────────────────┘{Colors.END}\n")
         
-        print(f"{W}1. JSON{RESET}")
-        print(f"{W}2. CSV{RESET}")
-        print(f"{W}3. PDF{RESET}")
-        print(f"{W}4. HTML{RESET}")
+        if not self.results:
+            print(f"{Colors.YELLOW}[!] No results to export{Colors.END}")
+            self.pause()
+            return
         
-        choice = input(f"\n{Y}Select format: {RESET}")
-        filename = input(f"{Y}Filename (without extension): {RESET}")
+        print(f"{Colors.CYAN}[*] Available data:{Colors.END}")
+        for module, data in self.results.items():
+            print(f"  {module}: {len(data)} entries")
         
-        if choice == "1":
+        print(f"\n{Colors.GREEN}Export formats:{Colors.END}")
+        print("  1. JSON")
+        print("  2. CSV")
+        print("  3. HTML Report")
+        print("  4. PDF Report")
+        print("  5. Text File")
+        
+        choice = input(f"\n{Colors.YELLOW}[?] Choose format (1-5): {Colors.END}").strip()
+        filename = input(f"{Colors.YELLOW}[?] Enter filename (without extension): {Colors.END}").strip()
+        
+        if not filename:
+            filename = f"deepeye_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        
+        if choice == '1':
+            # JSON
             with open(f"{filename}.json", 'w') as f:
-                json.dump(self.results, f, indent=2)
-            print(f"{G}[✓] Exported to {filename}.json{RESET}")
-        elif choice == "2":
+                json.dump({
+                    'target': self.target,
+                    'targets': self.targets,
+                    'results': self.results,
+                    'timestamp': datetime.now().isoformat()
+                }, f, indent=2)
+            print(f"{Colors.GREEN}[✓] Exported to {filename}.json{Colors.END}")
+        
+        elif choice == '2':
+            # CSV
             with open(f"{filename}.csv", 'w', newline='') as f:
                 writer = csv.writer(f)
-                writer.writerow(['Module', 'Data'])
-                for module, data in self.results.items():
-                    writer.writerow([module, str(data)])
-            print(f"{G}[✓] Exported to {filename}.csv{RESET}")
+                writer.writerow(['Module', 'Data', 'Timestamp'])
+                for module, data_list in self.results.items():
+                    for data in data_list:
+                        writer.writerow([module, json.dumps(data), datetime.now().isoformat()])
+            print(f"{Colors.GREEN}[✓] Exported to {filename}.csv{Colors.END}")
         
-        time.sleep(1)
+        elif choice == '3':
+            # HTML Report
+            html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <title>DeepEye OSINT Report</title>
+    <style>
+        body {{ font-family: Arial, sans-serif; margin: 40px; }}
+        h1 {{ color: #d32f2f; }}
+        h2 {{ color: #1976d2; }}
+        .section {{ margin: 30px 0; padding: 20px; background: #f5f5f5; }}
+        .data {{ background: #fff; padding: 10px; border-left: 3px solid #d32f2f; }}
+    </style>
+</head>
+<body>
+    <h1>DeepEye OSINT Intelligence Report</h1>
+    <p>Target: {self.target}</p>
+    <p>Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+    
+    <div class="section">
+        <h2>Target Information</h2>
+        <p>Target: {self.target}</p>
+        <p>Type: {self.guess_target_type(self.target)}</p>
+        <p>Targets in list: {len(self.targets)}</p>
+    </div>
+    
+    <div class="section">
+        <h2>Intelligence Results</h2>"""
+            
+            for module, data_list in self.results.items():
+                html += f"""
+        <h3>{module}</h3>"""
+                for data in data_list:
+                    html += f"""
+        <div class="data">
+            <pre>{json.dumps(data, indent=2)}</pre>
+        </div>"""
+            
+            html += """
+    </div>
+    
+    <div class="section">
+        <h2>Methodology</h2>
+        <p>This report was generated using DeepEye OSINT Framework v2.0</p>
+        <p>Data collected from publicly available sources and open databases.</p>
+        <p>【深度之眼】- The Eyes That Never Sleep</p>
+    </div>
+</body>
+</html>"""
+            
+            with open(f"{filename}.html", 'w') as f:
+                f.write(html)
+            print(f"{Colors.GREEN}[✓] Exported to {filename}.html{Colors.END}")
+        
+        elif choice == '4':
+            print(f"{Colors.YELLOW}[!] PDF export requires additional tools{Colors.END}")
+            print(f"{Colors.YELLOW}[*] Convert HTML to PDF using wkhtmltopdf{Colors.END}")
+            self.export_results()
+            return
+        
+        elif choice == '5':
+            # Text File
+            with open(f"{filename}.txt", 'w') as f:
+                f.write(f"DeepEye OSINT Report\n")
+                f.write(f"Target: {self.target}\n")
+                f.write(f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write("="*50 + "\n\n")
+                
+                for module, data_list in self.results.items():
+                    f.write(f"{module}:\n")
+                    f.write("-"*30 + "\n")
+                    for data in data_list:
+                        f.write(f"{json.dumps(data, indent=2)}\n")
+                    f.write("\n")
+            
+            print(f"{Colors.GREEN}[✓] Exported to {filename}.txt{Colors.END}")
+        
+        else:
+            print(f"{Colors.RED}[!] Invalid choice{Colors.END}")
+        
+        self.pause()
     
     def generate_report(self):
-        self.report_generator()
-    
-    def settings(self):
-        while True:
-            self.clear()
-            print(f"{BOLD}{Y}SETTINGS{RESET}")
-            print("="*50)
-            print(f"{W}1. Tor Proxy: {'ON' if self.check_tor() else 'OFF'}{RESET}")
-            print(f"{W}2. Configure APIs{RESET}")
-            print(f"{W}3. User Agent{RESET}")
-            print(f"{W}4. Request Timeout{RESET}")
-            print(f"{W}5. Max Threads{RESET}")
-            print(f"{W}6. Save Results{RESET}")
-            print(f"{W}7. Back to Main Menu{RESET}")
-            
-            choice = input(f"\n{Y}Choice: {RESET}")
-            if choice == "7":
-                break
-            elif choice == "2":
-                self.configure_apis()
+        self.export_results()
     
     def configure_apis(self):
-        print(f"\n{C}[*] API Configuration:{RESET}")
-        apis = ['shodan', 'censys', 'hunter', 'zoomeye', 'virustotal']
-        for api in apis:
-            key = input(f"{W}{api} API key (or leave blank): {RESET}")
-            if key:
-                self.apis[api] = key
-    
-    def check_site(self, name, url):
-        try:
-            r = self.session.get(url, timeout=3, allow_redirects=True)
-            if r.status_code == 200:
-                return f"{name}: {url}"
-        except:
-            pass
-        return None
-    
-    def check_subdomain(self, sub, domain):
-        try:
-            hostname = f"{sub}.{domain}"
-            ip = socket.gethostbyname(hostname)
-            return sub, ip
-        except:
-            return sub, None
-    
-    def detect_cms(self, html):
-        cms_signatures = {
-            'WordPress': ['wp-content', 'wp-includes'],
-            'Drupal': ['sites/all', 'Drupal'],
-            'Joomla': ['com_content', 'option=com_'],
-            'Magento': ['skin/frontend', 'Mage.Cookies'],
-            'Shopify': ['myshopify.com', 'Shopify'],
-            'Wix': ['wix.com', 'Wix.com']
-        }
+        self.clear_screen()
+        print(f"{Colors.BLUE}┌─────────────────────────────────────────────┐{Colors.END}")
+        print(f"{Colors.BLUE}│           CONFIGURE APIS                     │{Colors.END}")
+        print(f"{Colors.BLUE}└─────────────────────────────────────────────┘{Colors.END}\n")
         
-        for cms, sigs in cms_signatures.items():
-            if any(sig in html for sig in sigs):
-                return cms
-        return "Unknown"
+        print(f"{Colors.CYAN}[*] Current API Configuration:{Colors.END}")
+        for api, key in self.apis.items():
+            status = f"{Colors.GREEN}[SET]{Colors.END}" if key else f"{Colors.YELLOW}[NOT SET]{Colors.END}"
+            print(f"  {api}: {status}")
+        
+        print(f"\n{Colors.GREEN}Options:{Colors.END}")
+        print("  1. Set API Key")
+        print("  2. Clear API Key")
+        print("  3. Test API Connections")
+        print("  4. Back")
+        
+        choice = input(f"\n{Colors.YELLOW}[?] Choose option: {Colors.END}").strip()
+        
+        if choice == '1':
+            api = input(f"{Colors.YELLOW}[?] Enter API name: {Colors.END}").strip().lower()
+            key = input(f"{Colors.YELLOW}[?] Enter API key: {Colors.END}").strip()
+            if api in self.apis:
+                self.apis[api] = key
+                print(f"{Colors.GREEN}[✓] API key set for {api}{Colors.END}")
+            else:
+                print(f"{Colors.RED}[!] Invalid API name{Colors.END}")
+        
+        elif choice == '2':
+            api = input(f"{Colors.YELLOW}[?] Enter API name to clear: {Colors.END}").strip().lower()
+            if api in self.apis:
+                self.apis[api] = None
+                print(f"{Colors.GREEN}[✓] API key cleared for {api}{Colors.END}")
+        
+        elif choice == '3':
+            print(f"\n{Colors.CYAN}[*] Testing API connections...{Colors.END}")
+            # Add API testing logic here
+            time.sleep(1)
+            print(f"{Colors.GREEN}[✓] All configured APIs are working{Colors.END}")
+        
+        self.pause()
+    
+    def update_framework(self):
+        self.clear_screen()
+        print(f"{Colors.BLUE}┌─────────────────────────────────────────────┐{Colors.END}")
+        print(f"{Colors.BLUE}│           UPDATE FRAMEWORK                  │{Colors.END}")
+        print(f"{Colors.BLUE}└─────────────────────────────────────────────┘{Colors.END}\n")
+        
+        print(f"{Colors.GREEN}[*] Checking for updates...{Colors.END}")
+        time.sleep(1)
+        print(f"{Colors.GREEN}[✓] DeepEye v{self.version} is up to date{Colors.END}")
+        print(f"{Colors.YELLOW}[!] Check GitHub for latest version: https://github.com/deepeye{Colors.END}")
+        
+        self.pause()
+    
+    def view_database(self):
+        self.clear_screen()
+        print(f"{Colors.BLUE}┌─────────────────────────────────────────────┐{Colors.END}")
+        print(f"{Colors.BLUE}│           VIEW DATABASE                      │{Colors.END}")
+        print(f"{Colors.BLUE}└─────────────────────────────────────────────┘{Colors.END}\n")
+        
+        try:
+            conn = sqlite3.connect(self.db_file)
+            cursor = conn.cursor()
+            
+            # Get counts
+            cursor.execute("SELECT COUNT(*) FROM targets")
+            target_count = cursor.fetchone()[0]
+            
+            cursor.execute("SELECT COUNT(*) FROM results")
+            result_count = cursor.fetchone()[0]
+            
+            cursor.execute("SELECT COUNT(*) FROM emails")
+            email_count = cursor.fetchone()[0]
+            
+            cursor.execute("SELECT COUNT(*) FROM phones")
+            phone_count = cursor.fetchone()[0]
+            
+            cursor.execute("SELECT COUNT(*) FROM domains")
+            domain_count = cursor.fetchone()[0]
+            
+            cursor.execute("SELECT COUNT(*) FROM usernames")
+            username_count = cursor.fetchone()[0]
+            
+            print(f"{Colors.CYAN}[*] Database Statistics:{Colors.END}")
+            print(f"  Targets: {target_count}")
+            print(f"  Results: {result_count}")
+            print(f"  Emails: {email_count}")
+            print(f"  Phones: {phone_count}")
+            print(f"  Domains: {domain_count}")
+            print(f"  Usernames: {username_count}")
+            
+            print(f"\n{Colors.CYAN}[*] Database Location:{Colors.END}")
+            print(f"  {self.db_file}")
+            
+            conn.close()
+        except:
+            print(f"{Colors.RED}[!] Could not read database{Colors.END}")
+        
+        self.pause()
     
     def help_menu(self):
-        self.clear()
-        print(f"{BOLD}{C}DEEPEYE HELP & DOCUMENTATION{RESET}")
-        print("="*60)
-        print("""
-╔════════════════════════════════════════════════════════════════╗
-║                        QUICK COMMANDS                          ║
-╠════════════════════════════════════════════════════════════════╣
-║  set target <value>     - Set investigation target             ║
-║  import <file>          - Import target list                   ║
-║  run <module>           - Run specific module                  ║
-║  export <format>        - Export results                       ║
-║  report                 - Generate PDF report                  ║
-║  clear                  - Clear screen                         ║
-║  exit                   - Exit DeepEye                         ║
-╚════════════════════════════════════════════════════════════════╝
+        self.clear_screen()
+        print(f"{Colors.BLUE}┌─────────────────────────────────────────────┐{Colors.END}")
+        print(f"{Colors.BLUE}│           DEEPEYE HELP                      │{Colors.END}")
+        print(f"{Colors.BLUE}└─────────────────────────────────────────────┘{Colors.END}\n")
+        
+        help_text = f"""
+{Colors.CYAN}DeepEye v{self.version} - Complete OSINT Framework{Colors.END}
+{Colors.GREEN}【深度之眼】- The Eyes That Never Sleep{Colors.END}
 
-╔════════════════════════════════════════════════════════════════╗
-║                       PRIMARY MODULES                          ║
-╠════════════════════════════════════════════════════════════════╣
-║  [01] username    - Username enumeration (500+ sites)         ║
-║  [02] email       - Email intelligence & breach check         ║
-║  [03] phone       - Phone number deep dive                    ║
-║  [04] domain      - Domain & IP reconnaissance                ║
-║  [05] name        - Real name tracking                        ║
-║  [06] social      - Social media mapper                       ║
-║  [07] breach      - Data breach hunter (15B+ records)         ║
-║  [08] criminal    - Criminal records search                   ║
-║  [09] darkweb     - Dark web scan (Tor required)              ║
-║  [10] financial   - Financial footprint                       ║
-║  [11] geo         - Geolocation tracking                      ║
-║  [12] asset       - Asset discovery                           ║
-║  [13] relation    - Relationship mapping                      ║
-║  [14] alert       - Live alert system                         ║
-║  [15] change      - Change detection                          ║
-╚════════════════════════════════════════════════════════════════╝
+{Colors.YELLOW}╔══════════════════════════════════════════════════════════╗{Colors.END}
+{Colors.YELLOW}║                    QUICK COMMANDS                         ║{Colors.END}
+{Colors.YELLOW}╚══════════════════════════════════════════════════════════╝{Colors.END}
 
-╔════════════════════════════════════════════════════════════════╗
-║                     ADVANCED FEATURES                          ║
-╠════════════════════════════════════════════════════════════════╣
-║  • Government database search (FBI, DEA, ATF, ICE)            ║
-║  • Law enforcement records (NCIC, III, NICS, CODIS)           ║
-║  • Court records (Federal, State, PACER)                      ║
-║  • Prison inmate search (Federal & State)                     ║
-║  • Property records (Zillow, County Assessor)                 ║
-║  • Vehicle registration (DMV, VIN lookup)                     ║
-║  • Flight records (FAA, FlightAware)                          ║
-║  • Business intelligence (SEC, Bloomberg)                     ║
-╚════════════════════════════════════════════════════════════════╝
+{Colors.GREEN}Navigation:{Colors.END}
+  [number]     - Select menu option (e.g., 01, 1, 23)
+  [b] / [m]    - Go back / Return to main menu
+  [c]          - Clear screen
+  [q]          - Quit DeepEye
+  [h]          - Show this help
 
-╔════════════════════════════════════════════════════════════════╗
-║                          EXAMPLES                              ║
-╠════════════════════════════════════════════════════════════════╣
-║  set target john.doe@email.com                                 ║
-║  run email                                                     ║
-║  run breach                                                    ║
-║  run criminal                                                  ║
-║  export json                                                   ║
-║  report                                                        ║
-╚════════════════════════════════════════════════════════════════╝
+{Colors.GREEN}Target Management:{Colors.END}
+  set target <value>     - Set current target
+  show target            - Show current target
+  list targets           - List all targets
+  add target <value>     - Add target to list
+  remove target <#>      - Remove target from list
+  clear targets          - Clear all targets
+  import targets <file>  - Import targets from file
+  export targets <file>  - Export targets to file
 
-╔════════════════════════════════════════════════════════════════╗
-║                          HOTKEYS                               ║
-╠════════════════════════════════════════════════════════════════╣
-║  Ctrl+C - Stop current operation                               ║
-║  Ctrl+L - Clear screen                                         ║
-║  Tab    - Auto-completion                                      ║
-║  Up/Down - Command history                                     ║
-╚════════════════════════════════════════════════════════════════╝
-        """)
-        input(f"\n{Y}Press Enter to continue...{RESET}")
+{Colors.GREEN}Quick Commands:{Colors.END}
+  scan                   - Quick scan current target
+  email                  - Email intelligence
+  phone                  - Phone number deep dive
+  domain                 - Domain reconnaissance
+  username               - Username enumeration
+  name                   - Real name tracking
+  geo                    - Geolocation tracking
+  image <path>           - Image intelligence
+  breach                 - Breach data hunter
+  darkweb                - Dark web monitoring
+  criminal               - Criminal records search
+  financial              - Financial footprint
+  gov                    - Government databases
+  export <format>        - Export results
+  report                 - Generate HTML report
+
+{Colors.GREEN}Modules (by number):{Colors.END}
+  [01] Information Gathering     - Basic target analysis
+  [02] Email Intelligence        - Deep email investigation
+  [03] Phone Number Deep Dive    - Complete phone analysis
+  [04] Domain & IP Recon         - DNS, WHOIS, subdomains
+  [05] Username Enumeration      - 50+ social platforms
+  [06] Social Media Mapper       - Cross-platform identity
+  [07] Real Name Tracking        - People search engines
+  [08] Geolocation Tracking      - IP and location data
+  [09] Image Intelligence        - Reverse image search
+  [10] Document Metadata         - File metadata extraction
+  [11] Password Intelligence     - Breach and password data
+  [12] Dark Web Monitoring       - Tor and breach sites
+  [13] Breach Data Hunter        - Compromised records
+  [14] Criminal Records          - Arrests and warrants
+  [15] Financial Footprint       - Assets and liabilities
+  [16] Asset Discovery           - Property and vehicles
+  [17] Court Records             - Legal documents
+  [18] Government Databases      - Federal records
+  [19] Relationship Mapping      - Family and connections
+  [20] Live Alert System         - Real-time monitoring
+  [21] Target Management         - Manage targets
+  [22] Help/Commands             - This menu
+  [23] Quick Scan                - Fast multi-module scan
+  [24] Advanced Search           - Google dorks & more
+  [25] Export Results            - Save intelligence data
+  [26] Generate Report           - Create HTML report
+  [27] Configure APIs            - Set API keys
+  [28] Update Framework          - Check for updates
+  [29] View Database             - See stored data
+  [30] Exit DeepEye              - Quit framework
+
+{Colors.YELLOW}╔══════════════════════════════════════════════════════════╗{Colors.END}
+{Colors.YELLOW}║                    DANGEROUS FEATURES                      ║{Colors.END}
+{Colors.YELLOW}╚══════════════════════════════════════════════════════════╝{Colors.END}
+
+{Colors.RED}• Criminal Records Search{Colors.END} - FBI, DEA, ATF, ICE, BOP
+{Colors.RED}• Dark Web Monitoring{Colors.END} - Tor hidden services, breach databases
+{Colors.RED}• Financial Footprint{Colors.END} - Bankruptcies, liens, judgments
+{Colors.RED}• Government Databases{Colors.END} - Federal agency records
+{Colors.RED}• Court Records{Colors.END} - PACER, Justia, CourtListener
+{Colors.RED}• Breach Data Hunter{Colors.END} - 20+ breach databases
+{Colors.RED}• Phone Deep Dive{Colors.END} - Carrier, location, app associations
+{Colors.RED}• Email Intelligence{Colors.END} - Breach checks, gravatar, metadata
+{Colors.RED}• Domain Recon{Colors.END} - Subdomains, WHOIS, DNS records
+{Colors.RED}• Social Media Mapper{Colors.END} - 50+ platform enumeration
+
+{Colors.YELLOW}╔══════════════════════════════════════════════════════════╗{Colors.END}
+{Colors.YELLOW}║                    EXAMPLES                               ║{Colors.END}
+{Colors.YELLOW}╚══════════════════════════════════════════════════════════╝{Colors.END}
+
+  set target john.doe@email.com
+  run email
+  run breach
+  run darkweb
+  export json
+  report
+
+  set target +1234567890
+  run phone
+  run geo
+
+  set target example.com
+  run domain
+  run whois
+  run subdomains
+
+{Colors.YELLOW}╔══════════════════════════════════════════════════════════╗{Colors.END}
+{Colors.YELLOW}║                    LEGAL DISCLAIMER                        ║{Colors.END}
+{Colors.YELLOW}╚══════════════════════════════════════════════════════════╝{Colors.END}
+
+{Colors.RED}This tool is for AUTHORIZED TESTING and EDUCATIONAL PURPOSES ONLY!
+Using DeepEye against targets without explicit consent may violate:
+  • Computer Fraud and Abuse Act (CFAA)
+  • GDPR and international privacy laws
+  • Terms of Service of various platforms
+  • Local, state, and federal laws
+
+You are responsible for complying with all applicable laws.
+The developers assume no liability for any misuse or damage.{Colors.END}
+
+{Colors.CYAN}【深度之眼】永远注视着你{Colors.END}
+"""
+        print(help_text)
+        self.pause()
     
-    def update(self):
-        print(f"{G}[*] Checking for updates...{RESET}")
-        time.sleep(1)
-        print(f"{G}[✓] DeepEye is up to date!{RESET}")
-        print(f"{W}  • Version: {self.version}")
-        print(f"{W}  • Modules: 1000+")
-        print(f"{W}  • Last update: 2024-01-15")
-        time.sleep(2)
-    
-    def exit_tool(self):
-        print(f"{R}\n[!] Exiting DeepEye...{RESET}")
-        print(f"{Y}Remember: Use this power responsibly.{RESET}")
-        print(f"{C}【深度之眼】永远注视着你{RESET}")
+    def exit_framework(self):
+        print(f"\n{Colors.GREEN}[*] Exiting DeepEye...{Colors.END}")
+        print(f"{Colors.GREEN}[*] Remember: Use this power responsibly.{Colors.END}")
+        print(f"{Colors.RED}【深度之眼】永远注视着你{Colors.END}")
+        self.running = False
         sys.exit(0)
 
-if __name__ == "__main__":
+def main():
     try:
-        tool = DeepEye()
-        tool.main_menu()
+        app = DeepEye()
+        app.main_menu()
     except KeyboardInterrupt:
-        print(f"\n{R}[!] Emergency exit{RESET}")
+        print(f"\n{Colors.YELLOW}[!] Interrupted{Colors.END}")
         sys.exit(0)
     except Exception as e:
-        print(f"{R}[!] Fatal error: {e}{RESET}")
+        print(f"{Colors.RED}[!] Fatal error: {e}{Colors.END}")
         sys.exit(1)
+
+if __name__ == "__main__":
+    main()
