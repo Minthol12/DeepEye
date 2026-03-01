@@ -344,349 +344,349 @@ class DeepEye:
                 print(f"{Colors.RED}[!] Invalid option{Colors.END}")
                 time.sleep(1)
     
-def target_management(self):
-    while True:
-        self.clear_screen()
-        print(f"{Colors.BLUE}┌─────────────────────────────────────────────┐{Colors.END}")
-        print(f"{Colors.BLUE}│           TARGET MANAGEMENT                  │{Colors.END}")
-        print(f"{Colors.BLUE}├─────────────────────────────────────────────┤{Colors.END}")
-        print(f"{Colors.BLUE}│  Total Targets: {len(self.targets)}                              │{Colors.END}")
-        print(f"{Colors.BLUE}└─────────────────────────────────────────────┘{Colors.END}\n")
-        
-        print(f"{Colors.GREEN}Current Target: {self.target or 'None'}{Colors.END}")
-        print(f"{Colors.GREEN}Target Type: {self.guess_target_type(self.target) if self.target else 'N/A'}{Colors.END}")
-        print(f"{Colors.GREEN}Targets in List: {len(self.targets)}{Colors.END}\n")
-        
-        print(f"{Colors.CYAN}╔════════════════════════════════════════════════════╗{Colors.END}")
-        print(f"{Colors.CYAN}║              QUICK TARGET SETTING                  ║{Colors.END}")
-        print(f"{Colors.CYAN}╚════════════════════════════════════════════════════╝{Colors.END}")
-        print(f"{Colors.GREEN}[set email]{Colors.END} <email>     - Set email target")
-        print(f"{Colors.GREEN}[set phone]{Colors.END} <number>    - Set phone number target")
-        print(f"{Colors.GREEN}[set name]{Colors.END} <fullname>   - Set real name target")
-        print(f"{Colors.GREEN}[set user]{Colors.END} <username>   - Set username target")
-        print(f"{Colors.GREEN}[set domain]{Colors.END} <domain>    - Set domain target")
-        print(f"{Colors.GREEN}[set ip]{Colors.END} <address>     - Set IP address target")
-        print()
+    def target_management(self):
+        while True:
+            self.clear_screen()
+            print(f"{Colors.BLUE}┌─────────────────────────────────────────────┐{Colors.END}")
+            print(f"{Colors.BLUE}│           TARGET MANAGEMENT                  │{Colors.END}")
+            print(f"{Colors.BLUE}├─────────────────────────────────────────────┤{Colors.END}")
+            print(f"{Colors.BLUE}│  Total Targets: {len(self.targets)}                              │{Colors.END}")
+            print(f"{Colors.BLUE}└─────────────────────────────────────────────┘{Colors.END}\n")
+            
+            print(f"{Colors.GREEN}Current Target: {self.target or 'None'}{Colors.END}")
+            print(f"{Colors.GREEN}Target Type: {self.guess_target_type(self.target) if self.target else 'N/A'}{Colors.END}")
+            print(f"{Colors.GREEN}Targets in List: {len(self.targets)}{Colors.END}\n")
+            
+            print(f"{Colors.CYAN}╔════════════════════════════════════════════════════╗{Colors.END}")
+            print(f"{Colors.CYAN}║              QUICK TARGET SETTING                  ║{Colors.END}")
+            print(f"{Colors.CYAN}╚════════════════════════════════════════════════════╝{Colors.END}")
+            print(f"{Colors.GREEN}[set email]{Colors.END} <email>     - Set email target")
+            print(f"{Colors.GREEN}[set phone]{Colors.END} <number>    - Set phone number target")
+            print(f"{Colors.GREEN}[set name]{Colors.END} <fullname>   - Set real name target")
+            print(f"{Colors.GREEN}[set user]{Colors.END} <username>   - Set username target")
+            print(f"{Colors.GREEN}[set domain]{Colors.END} <domain>    - Set domain target")
+            print(f"{Colors.GREEN}[set ip]{Colors.END} <address>     - Set IP address target")
+            print()
 
-        print(f"{Colors.CYAN}╔════════════════════════════════════════════════════╗{Colors.END}")
-        print(f"{Colors.CYAN}║              TARGET MANAGEMENT MENU                ║{Colors.END}")
-        print(f"{Colors.CYAN}╚════════════════════════════════════════════════════╝{Colors.END}")
-        print(f"{Colors.GREEN}[01]{Colors.END} Set Current Target")
-        print(f"{Colors.GREEN}[02]{Colors.END} Show Current Target")
-        print(f"{Colors.GREEN}[03]{Colors.END} List All Targets")
-        print(f"{Colors.GREEN}[04]{Colors.END} Add Target to List")
-        print(f"{Colors.GREEN}[05]{Colors.END} Remove Target from List")
-        print(f"{Colors.GREEN}[06]{Colors.END} Clear All Targets")
-        print(f"{Colors.GREEN}[07]{Colors.END} Import Targets from File")
-        print(f"{Colors.GREEN}[08]{Colors.END} Export Targets to File")
-        print(f"{Colors.GREEN}[09]{Colors.END} View Target History")
-        print(f"{Colors.GREEN}[10]{Colors.END} Clear Target History")
-        print(f"{Colors.GREEN}[11]{Colors.END} Back to Main Menu")
-        print()
-        
-        choice = input(f"{Colors.YELLOW}DeepEye@targets:~$ {Colors.END}").strip().lower()
-        
-        # Handle quick set commands
-        if choice.startswith('set '):
-            parts = choice.split(' ', 2)
-            if len(parts) >= 3:
-                cmd = parts[1]
-                value = parts[2]
-                
-                if cmd == 'email':
-                    self.set_email_target(value)
-                elif cmd == 'phone':
-                    self.set_phone_target(value)
-                elif cmd == 'name':
-                    self.set_name_target(value)
-                elif cmd == 'user':
-                    self.set_username_target(value)
-                elif cmd == 'domain':
-                    self.set_domain_target(value)
-                elif cmd == 'ip':
-                    self.set_ip_target(value)
+            print(f"{Colors.CYAN}╔════════════════════════════════════════════════════╗{Colors.END}")
+            print(f"{Colors.CYAN}║              TARGET MANAGEMENT MENU                ║{Colors.END}")
+            print(f"{Colors.CYAN}╚════════════════════════════════════════════════════╝{Colors.END}")
+            print(f"{Colors.GREEN}[01]{Colors.END} Set Current Target")
+            print(f"{Colors.GREEN}[02]{Colors.END} Show Current Target")
+            print(f"{Colors.GREEN}[03]{Colors.END} List All Targets")
+            print(f"{Colors.GREEN}[04]{Colors.END} Add Target to List")
+            print(f"{Colors.GREEN}[05]{Colors.END} Remove Target from List")
+            print(f"{Colors.GREEN}[06]{Colors.END} Clear All Targets")
+            print(f"{Colors.GREEN}[07]{Colors.END} Import Targets from File")
+            print(f"{Colors.GREEN}[08]{Colors.END} Export Targets to File")
+            print(f"{Colors.GREEN}[09]{Colors.END} View Target History")
+            print(f"{Colors.GREEN}[10]{Colors.END} Clear Target History")
+            print(f"{Colors.GREEN}[11]{Colors.END} Back to Main Menu")
+            print()
+            
+            choice = input(f"{Colors.YELLOW}DeepEye@targets:~$ {Colors.END}").strip().lower()
+            
+            # Handle quick set commands
+            if choice.startswith('set '):
+                parts = choice.split(' ', 2)
+                if len(parts) >= 3:
+                    cmd = parts[1]
+                    value = parts[2]
+                    
+                    if cmd == 'email':
+                        self.set_email_target(value)
+                    elif cmd == 'phone':
+                        self.set_phone_target(value)
+                    elif cmd == 'name':
+                        self.set_name_target(value)
+                    elif cmd == 'user':
+                        self.set_username_target(value)
+                    elif cmd == 'domain':
+                        self.set_domain_target(value)
+                    elif cmd == 'ip':
+                        self.set_ip_target(value)
+                    else:
+                        print(f"{Colors.RED}[!] Unknown set command: {cmd}{Colors.END}")
+                        time.sleep(1)
                 else:
-                    print(f"{Colors.RED}[!] Unknown set command: {cmd}{Colors.END}")
+                    print(f"{Colors.RED}[!] Missing value for set command{Colors.END}")
                     time.sleep(1)
-            else:
-                print(f"{Colors.RED}[!] Missing value for set command{Colors.END}")
-                time.sleep(1)
-            continue
+                continue
+            
+            # Handle numbered options
+            if choice in ['1', '01']:
+                self.set_target()
+            elif choice in ['2', '02']:
+                self.show_target()
+            elif choice in ['3', '03']:
+                self.list_targets()
+            elif choice in ['4', '04']:
+                self.add_target()
+            elif choice in ['5', '05']:
+                self.remove_target()
+            elif choice in ['6', '06']:
+                self.clear_targets()
+            elif choice in ['7', '07']:
+                self.import_targets()
+            elif choice in ['8', '08']:
+                self.export_targets()
+            elif choice in ['9', '09']:
+                self.view_target_history()
+            elif choice in ['10']:
+                self.clear_target_history()
+            elif choice in ['11']:
+                break
+
+    def set_email_target(self, email=None):
+        """Set email target with validation"""
+        if not email:
+            email = input(f"{Colors.YELLOW}[?] Enter email address: {Colors.END}").strip()
         
-        # Handle numbered options
-        if choice in ['1', '01']:
-            self.set_target()
-        elif choice in ['2', '02']:
-            self.show_target()
-        elif choice in ['3', '03']:
-            self.list_targets()
-        elif choice in ['4', '04']:
-            self.add_target()
-        elif choice in ['5', '05']:
-            self.remove_target()
-        elif choice in ['6', '06']:
-            self.clear_targets()
-        elif choice in ['7', '07']:
-            self.import_targets()
-        elif choice in ['8', '08']:
-            self.export_targets()
-        elif choice in ['9', '09']:
-            self.view_target_history()
-        elif choice in ['10']:
-            self.clear_target_history()
-        elif choice in ['11']:
-            break
+        if email and '@' in email and '.' in email:
+            self.target = email
+            if email not in self.targets:
+                self.targets.append(email)
+                self.save_to_db('targets', {'target': email, 'type': 'Email Address'})
+            print(f"{Colors.GREEN}[✓] Email target set to: {email}{Colors.END}")
+            self.log_action(f"Email target set: {email}")
+        else:
+            print(f"{Colors.RED}[!] Invalid email format{Colors.END}")
+        self.pause()
 
-def set_email_target(self, email=None):
-    """Set email target with validation"""
-    if not email:
-        email = input(f"{Colors.YELLOW}[?] Enter email address: {Colors.END}").strip()
-    
-    if email and '@' in email and '.' in email:
-        self.target = email
-        if email not in self.targets:
-            self.targets.append(email)
-            self.save_to_db('targets', {'target': email, 'type': 'Email Address'})
-        print(f"{Colors.GREEN}[✓] Email target set to: {email}{Colors.END}")
-        self.log_action(f"Email target set: {email}")
-    else:
-        print(f"{Colors.RED}[!] Invalid email format{Colors.END}")
-    self.pause()
+    def set_phone_target(self, phone=None):
+        """Set phone target with validation"""
+        if not phone:
+            phone = input(f"{Colors.YELLOW}[?] Enter phone number: {Colors.END}").strip()
+        
+        # Remove common phone formatting
+        clean = re.sub(r'[\s\-\(\)]', '', phone)
+        if clean and clean.replace('+', '').isdigit():
+            self.target = phone
+            if phone not in self.targets:
+                self.targets.append(phone)
+                self.save_to_db('targets', {'target': phone, 'type': 'Phone Number'})
+            print(f"{Colors.GREEN}[✓] Phone target set to: {phone}{Colors.END}")
+            self.log_action(f"Phone target set: {phone}")
+        else:
+            print(f"{Colors.RED}[!] Invalid phone number format{Colors.END}")
+        self.pause()
 
-def set_phone_target(self, phone=None):
-    """Set phone target with validation"""
-    if not phone:
-        phone = input(f"{Colors.YELLOW}[?] Enter phone number: {Colors.END}").strip()
-    
-    # Remove common phone formatting
-    clean = re.sub(r'[\s\-\(\)]', '', phone)
-    if clean and clean.replace('+', '').isdigit():
-        self.target = phone
-        if phone not in self.targets:
-            self.targets.append(phone)
-            self.save_to_db('targets', {'target': phone, 'type': 'Phone Number'})
-        print(f"{Colors.GREEN}[✓] Phone target set to: {phone}{Colors.END}")
-        self.log_action(f"Phone target set: {phone}")
-    else:
-        print(f"{Colors.RED}[!] Invalid phone number format{Colors.END}")
-    self.pause()
+    def set_name_target(self, name=None):
+        """Set real name target"""
+        if not name:
+            name = input(f"{Colors.YELLOW}[?] Enter full name: {Colors.END}").strip()
+        
+        if name and len(name.split()) >= 2:
+            self.target = name
+            if name not in self.targets:
+                self.targets.append(name)
+                self.save_to_db('targets', {'target': name, 'type': 'Full Name'})
+            print(f"{Colors.GREEN}[✓] Name target set to: {name}{Colors.END}")
+            self.log_action(f"Name target set: {name}")
+        else:
+            print(f"{Colors.RED}[!] Please enter first and last name{Colors.END}")
+        self.pause()
 
-def set_name_target(self, name=None):
-    """Set real name target"""
-    if not name:
-        name = input(f"{Colors.YELLOW}[?] Enter full name: {Colors.END}").strip()
-    
-    if name and len(name.split()) >= 2:
-        self.target = name
-        if name not in self.targets:
-            self.targets.append(name)
-            self.save_to_db('targets', {'target': name, 'type': 'Full Name'})
-        print(f"{Colors.GREEN}[✓] Name target set to: {name}{Colors.END}")
-        self.log_action(f"Name target set: {name}")
-    else:
-        print(f"{Colors.RED}[!] Please enter first and last name{Colors.END}")
-    self.pause()
+    def set_username_target(self, username=None):
+        """Set username target"""
+        if not username:
+            username = input(f"{Colors.YELLOW}[?] Enter username: {Colors.END}").strip()
+        
+        if username and len(username) >= 3:
+            self.target = username
+            if username not in self.targets:
+                self.targets.append(username)
+                self.save_to_db('targets', {'target': username, 'type': 'Username'})
+            print(f"{Colors.GREEN}[✓] Username target set to: {username}{Colors.END}")
+            self.log_action(f"Username target set: {username}")
+        else:
+            print(f"{Colors.RED}[!] Username must be at least 3 characters{Colors.END}")
+        self.pause()
 
-def set_username_target(self, username=None):
-    """Set username target"""
-    if not username:
-        username = input(f"{Colors.YELLOW}[?] Enter username: {Colors.END}").strip()
-    
-    if username and len(username) >= 3:
-        self.target = username
-        if username not in self.targets:
-            self.targets.append(username)
-            self.save_to_db('targets', {'target': username, 'type': 'Username'})
-        print(f"{Colors.GREEN}[✓] Username target set to: {username}{Colors.END}")
-        self.log_action(f"Username target set: {username}")
-    else:
-        print(f"{Colors.RED}[!] Username must be at least 3 characters{Colors.END}")
-    self.pause()
+    def set_domain_target(self, domain=None):
+        """Set domain target"""
+        if not domain:
+            domain = input(f"{Colors.YELLOW}[?] Enter domain (e.g., example.com): {Colors.END}").strip()
+        
+        if domain and '.' in domain and not ' ' in domain:
+            self.target = domain
+            if domain not in self.targets:
+                self.targets.append(domain)
+                self.save_to_db('targets', {'target': domain, 'type': 'Domain'})
+            print(f"{Colors.GREEN}[✓] Domain target set to: {domain}{Colors.END}")
+            self.log_action(f"Domain target set: {domain}")
+        else:
+            print(f"{Colors.RED}[!] Invalid domain format{Colors.END}")
+        self.pause()
 
-def set_domain_target(self, domain=None):
-    """Set domain target"""
-    if not domain:
-        domain = input(f"{Colors.YELLOW}[?] Enter domain (e.g., example.com): {Colors.END}").strip()
-    
-    if domain and '.' in domain and not ' ' in domain:
-        self.target = domain
-        if domain not in self.targets:
-            self.targets.append(domain)
-            self.save_to_db('targets', {'target': domain, 'type': 'Domain'})
-        print(f"{Colors.GREEN}[✓] Domain target set to: {domain}{Colors.END}")
-        self.log_action(f"Domain target set: {domain}")
-    else:
-        print(f"{Colors.RED}[!] Invalid domain format{Colors.END}")
-    self.pause()
+    def set_ip_target(self, ip=None):
+        """Set IP target"""
+        if not ip:
+            ip = input(f"{Colors.YELLOW}[?] Enter IP address: {Colors.END}").strip()
+        
+        # Simple IP validation
+        ip_pattern = r'^(\d{1,3}\.){3}\d{1,3}$'
+        if re.match(ip_pattern, ip):
+            self.target = ip
+            if ip not in self.targets:
+                self.targets.append(ip)
+                self.save_to_db('targets', {'target': ip, 'type': 'IP Address'})
+            print(f"{Colors.GREEN}[✓] IP target set to: {ip}{Colors.END}")
+            self.log_action(f"IP target set: {ip}")
+        else:
+            print(f"{Colors.RED}[!] Invalid IP address format{Colors.END}")
+        self.pause()
 
-def set_ip_target(self, ip=None):
-    """Set IP target"""
-    if not ip:
-        ip = input(f"{Colors.YELLOW}[?] Enter IP address: {Colors.END}").strip()
-    
-    # Simple IP validation
-    ip_pattern = r'^(\d{1,3}\.){3}\d{1,3}$'
-    if re.match(ip_pattern, ip):
-        self.target = ip
-        if ip not in self.targets:
-            self.targets.append(ip)
-            self.save_to_db('targets', {'target': ip, 'type': 'IP Address'})
-        print(f"{Colors.GREEN}[✓] IP target set to: {ip}{Colors.END}")
-        self.log_action(f"IP target set: {ip}")
-    else:
-        print(f"{Colors.RED}[!] Invalid IP address format{Colors.END}")
-    self.pause()
+    def set_target(self):
+        target = input(f"{Colors.YELLOW}[?] Enter target (username/email/phone/name/domain): {Colors.END}").strip()
+        if target:
+            self.target = target
+            if target not in self.targets:
+                self.targets.append(target)
+                self.save_to_db('targets', {'target': target, 'type': self.guess_target_type(target)})
+            print(f"{Colors.GREEN}[✓] Target set to: {target}{Colors.END}")
+            self.log_action(f"Target set: {target}")
+        self.pause()
 
-def set_target(self):
-    target = input(f"{Colors.YELLOW}[?] Enter target (username/email/phone/name/domain): {Colors.END}").strip()
-    if target:
-        self.target = target
-        if target not in self.targets:
+    def add_target(self):
+        target = input(f"{Colors.YELLOW}[?] Enter target: {Colors.END}").strip()
+        if target and target not in self.targets:
             self.targets.append(target)
             self.save_to_db('targets', {'target': target, 'type': self.guess_target_type(target)})
-        print(f"{Colors.GREEN}[✓] Target set to: {target}{Colors.END}")
-        self.log_action(f"Target set: {target}")
-    self.pause()
+            print(f"{Colors.GREEN}[✓] Target added: {target}{Colors.END}")
+        self.pause()
 
-def add_target(self):
-    target = input(f"{Colors.YELLOW}[?] Enter target: {Colors.END}").strip()
-    if target and target not in self.targets:
-        self.targets.append(target)
-        self.save_to_db('targets', {'target': target, 'type': self.guess_target_type(target)})
-        print(f"{Colors.GREEN}[✓] Target added: {target}{Colors.END}")
-    self.pause()
-
-def remove_target(self):
-    if self.targets:
-        self.list_targets()
-        try:
-            idx = int(input(f"{Colors.YELLOW}[?] Enter number to remove: {Colors.END}")) - 1
-            if 0 <= idx < len(self.targets):
-                removed = self.targets.pop(idx)
-                if removed == self.target:
-                    self.target = self.targets[0] if self.targets else None
-                print(f"{Colors.GREEN}[✓] Removed: {removed}{Colors.END}")
-        except:
-            print(f"{Colors.RED}[!] Invalid selection{Colors.END}")
-    else:
-        print(f"{Colors.YELLOW}[!] No targets to remove{Colors.END}")
-    self.pause()
-
-def clear_targets(self):
-    self.targets = []
-    self.target = None
-    print(f"{Colors.GREEN}[✓] All targets cleared{Colors.END}")
-    self.pause()
-
-def import_targets(self):
-    filename = input(f"{Colors.YELLOW}[?] Enter filename: {Colors.END}").strip()
-    try:
-        with open(filename, 'r') as f:
-            count = 0
-            for line in f:
-                target = line.strip()
-                if target and target not in self.targets:
-                    self.targets.append(target)
-                    count += 1
-        print(f"{Colors.GREEN}[✓] Imported {count} targets from {filename}{Colors.END}")
-    except Exception as e:
-        print(f"{Colors.RED}[!] Import failed: {e}{Colors.END}")
-    self.pause()
-
-def export_targets(self):
-    filename = input(f"{Colors.YELLOW}[?] Enter filename: {Colors.END}").strip()
-    try:
-        with open(filename, 'w') as f:
-            for target in self.targets:
-                f.write(f"{target}\n")
-        print(f"{Colors.GREEN}[✓] Exported {len(self.targets)} targets to {filename}{Colors.END}")
-    except Exception as e:
-        print(f"{Colors.RED}[!] Export failed: {e}{Colors.END}")
-    self.pause()
-
-def view_target_history(self):
-    try:
-        conn = sqlite3.connect(self.db_file)
-        cursor = conn.cursor()
-        cursor.execute("SELECT target, type, first_seen, last_seen FROM targets ORDER BY last_seen DESC LIMIT 50")
-        rows = cursor.fetchall()
-        conn.close()
-        
-        if rows:
-            print(f"\n{Colors.CYAN}Target History:{Colors.END}")
-            for row in rows:
-                print(f"  {row[0]} ({row[1]}) - First: {row[2][:10]}, Last: {row[3][:10]}")
+    def remove_target(self):
+        if self.targets:
+            self.list_targets()
+            try:
+                idx = int(input(f"{Colors.YELLOW}[?] Enter number to remove: {Colors.END}")) - 1
+                if 0 <= idx < len(self.targets):
+                    removed = self.targets.pop(idx)
+                    if removed == self.target:
+                        self.target = self.targets[0] if self.targets else None
+                    print(f"{Colors.GREEN}[✓] Removed: {removed}{Colors.END}")
+            except:
+                print(f"{Colors.RED}[!] Invalid selection{Colors.END}")
         else:
-            print(f"{Colors.YELLOW}[!] No target history{Colors.END}")
-    except:
-        print(f"{Colors.RED}[!] Could not load history{Colors.END}")
-    self.pause()
+            print(f"{Colors.YELLOW}[!] No targets to remove{Colors.END}")
+        self.pause()
 
-def clear_target_history(self):
-    confirm = input(f"{Colors.RED}[!] Clear all target history? (yes/no): {Colors.END}").strip().lower()
-    if confirm == 'yes':
+    def clear_targets(self):
+        self.targets = []
+        self.target = None
+        print(f"{Colors.GREEN}[✓] All targets cleared{Colors.END}")
+        self.pause()
+
+    def import_targets(self):
+        filename = input(f"{Colors.YELLOW}[?] Enter filename: {Colors.END}").strip()
+        try:
+            with open(filename, 'r') as f:
+                count = 0
+                for line in f:
+                    target = line.strip()
+                    if target and target not in self.targets:
+                        self.targets.append(target)
+                        count += 1
+            print(f"{Colors.GREEN}[✓] Imported {count} targets from {filename}{Colors.END}")
+        except Exception as e:
+            print(f"{Colors.RED}[!] Import failed: {e}{Colors.END}")
+        self.pause()
+
+    def export_targets(self):
+        filename = input(f"{Colors.YELLOW}[?] Enter filename: {Colors.END}").strip()
+        try:
+            with open(filename, 'w') as f:
+                for target in self.targets:
+                    f.write(f"{target}\n")
+            print(f"{Colors.GREEN}[✓] Exported {len(self.targets)} targets to {filename}{Colors.END}")
+        except Exception as e:
+            print(f"{Colors.RED}[!] Export failed: {e}{Colors.END}")
+        self.pause()
+
+    def view_target_history(self):
         try:
             conn = sqlite3.connect(self.db_file)
             cursor = conn.cursor()
-            cursor.execute("DELETE FROM targets")
-            cursor.execute("DELETE FROM results")
+            cursor.execute("SELECT target, type, first_seen, last_seen FROM targets ORDER BY last_seen DESC LIMIT 50")
+            rows = cursor.fetchall()
+            conn.close()
+            
+            if rows:
+                print(f"\n{Colors.CYAN}Target History:{Colors.END}")
+                for row in rows:
+                    print(f"  {row[0]} ({row[1]}) - First: {row[2][:10]}, Last: {row[3][:10]}")
+            else:
+                print(f"{Colors.YELLOW}[!] No target history{Colors.END}")
+        except:
+            print(f"{Colors.RED}[!] Could not load history{Colors.END}")
+        self.pause()
+
+    def clear_target_history(self):
+        confirm = input(f"{Colors.RED}[!] Clear all target history? (yes/no): {Colors.END}").strip().lower()
+        if confirm == 'yes':
+            try:
+                conn = sqlite3.connect(self.db_file)
+                cursor = conn.cursor()
+                cursor.execute("DELETE FROM targets")
+                cursor.execute("DELETE FROM results")
+                conn.commit()
+                conn.close()
+                print(f"{Colors.GREEN}[✓] History cleared{Colors.END}")
+            except:
+                print(f"{Colors.RED}[!] Failed to clear history{Colors.END}")
+        self.pause()
+
+    def save_to_db(self, table, data):
+        try:
+            conn = sqlite3.connect(self.db_file)
+            cursor = conn.cursor()
+            
+            if table == 'targets':
+                cursor.execute('''
+                    INSERT OR REPLACE INTO targets (target, type, first_seen, last_seen)
+                    VALUES (?, ?, COALESCE((SELECT first_seen FROM targets WHERE target=?), ?), ?)
+                ''', (data['target'], data['type'], data['target'], datetime.now().isoformat(), datetime.now().isoformat()))
+            
             conn.commit()
             conn.close()
-            print(f"{Colors.GREEN}[✓] History cleared{Colors.END}")
         except:
-            print(f"{Colors.RED}[!] Failed to clear history{Colors.END}")
-    self.pause()
+            pass
 
-def save_to_db(self, table, data):
-    try:
-        conn = sqlite3.connect(self.db_file)
-        cursor = conn.cursor()
-        
-        if table == 'targets':
-            cursor.execute('''
-                INSERT OR REPLACE INTO targets (target, type, first_seen, last_seen)
-                VALUES (?, ?, COALESCE((SELECT first_seen FROM targets WHERE target=?), ?), ?)
-            ''', (data['target'], data['type'], data['target'], datetime.now().isoformat(), datetime.now().isoformat()))
-        
-        conn.commit()
-        conn.close()
-    except:
-        pass
+    def show_target(self):
+        if self.target:
+            print(f"{Colors.GREEN}[✓] Current target: {self.target}{Colors.END}")
+            print(f"{Colors.GREEN}[✓] Target type: {self.guess_target_type(self.target)}{Colors.END}")
+        else:
+            print(f"{Colors.YELLOW}[!] No target set{Colors.END}")
+        self.pause()
 
-def show_target(self):
-    if self.target:
-        print(f"{Colors.GREEN}[✓] Current target: {self.target}{Colors.END}")
-        print(f"{Colors.GREEN}[✓] Target type: {self.guess_target_type(self.target)}{Colors.END}")
-    else:
-        print(f"{Colors.YELLOW}[!] No target set{Colors.END}")
-    self.pause()
+    def list_targets(self):
+        if self.targets:
+            print(f"{Colors.GREEN}[*] Target list:{Colors.END}")
+            for i, target in enumerate(self.targets, 1):
+                current = " [CURRENT]" if target == self.target else ""
+                print(f"  {i}. {target}{current}")
+        else:
+            print(f"{Colors.YELLOW}[!] No targets in list{Colors.END}")
+        self.pause()
 
-def list_targets(self):
-    if self.targets:
-        print(f"{Colors.GREEN}[*] Target list:{Colors.END}")
-        for i, target in enumerate(self.targets, 1):
-            current = " [CURRENT]" if target == self.target else ""
-            print(f"  {i}. {target}{current}")
-    else:
-        print(f"{Colors.YELLOW}[!] No targets in list{Colors.END}")
-    self.pause()
+    def guess_target_type(self, target):
+        if '@' in target:
+            return "Email Address"
+        elif re.match(r'^[\d\+\-\(\) ]+$', target):
+            return "Phone Number"
+        elif re.match(r'^\d+\.\d+\.\d+\.\d+$', target):
+            return "IP Address"
+        elif '.' in target and ' ' not in target and not target.endswith('.') and not target.startswith('.'):
+            return "Domain"
+        elif ' ' in target and len(target.split()) >= 2:
+            return "Full Name"
+        elif target.isalnum() and len(target) > 3:
+            return "Username"
+        else:
+            return "Unknown"
 
-def guess_target_type(self, target):
-    if '@' in target:
-        return "Email Address"
-    elif re.match(r'^[\d\+\-\(\) ]+$', target):
-        return "Phone Number"
-    elif re.match(r'^\d+\.\d+\.\d+\.\d+$', target):
-        return "IP Address"
-    elif '.' in target and ' ' not in target and not target.endswith('.') and not target.startswith('.'):
-        return "Domain"
-    elif ' ' in target and len(target.split()) >= 2:
-        return "Full Name"
-    elif target.isalnum() and len(target) > 3:
-        return "Username"
-    else:
-        return "Unknown"
-    
     def quick_scan(self):
         if not self.target:
             print(f"{Colors.RED}[!] No target set{Colors.END}")
@@ -727,7 +727,7 @@ def guess_target_type(self, target):
         print(f"\n{Colors.GREEN}[✓] Quick scan complete! Found 47 data points.{Colors.END}")
         self.save_result('quick_scan', {'target': self.target, 'type': target_type, 'timestamp': datetime.now().isoformat()})
         self.pause()
-    
+
     def info_gathering(self):
         if not self.target:
             print(f"{Colors.RED}[!] No target set! Use Target Management first.{Colors.END}")
@@ -802,7 +802,7 @@ def guess_target_type(self, target):
         
         self.save_result('info_gathering', {'target': self.target, 'type': target_type, 'timestamp': datetime.now().isoformat()})
         self.pause()
-    
+
     def email_intel(self):
         if not self.target or '@' not in self.target:
             print(f"{Colors.RED}[!] Target must be an email address!{Colors.END}")
@@ -843,7 +843,7 @@ def guess_target_type(self, target):
         
         self.save_result('email_intel', {'email': email, 'username': username, 'domain': domain})
         self.pause()
-    
+
     def phone_dive(self):
         if not self.target:
             print(f"{Colors.RED}[!] No target set!{Colors.END}")
@@ -906,7 +906,7 @@ def guess_target_type(self, target):
         
         self.save_result('phone_intel', {'phone': self.target, 'clean': number})
         self.pause()
-    
+
     def domain_recon(self):
         if not self.target:
             print(f"{Colors.RED}[!] No target set!{Colors.END}")
@@ -1004,7 +1004,7 @@ def guess_target_type(self, target):
         
         self.save_result('domain_recon', {'domain': self.target, 'ip': ip if 'ip' in locals() else None})
         self.pause()
-    
+
     def username_enum(self):
         if not self.target:
             print(f"{Colors.RED}[!] No target set!{Colors.END}")
@@ -1096,10 +1096,10 @@ def guess_target_type(self, target):
         # Save results
         self.save_result('username_enum', {'username': self.target, 'platforms': len(all_platforms)})
         self.pause()
-    
+
     def social_mapper(self):
         self.username_enum()
-    
+
     def name_tracking(self):
         if not self.target:
             print(f"{Colors.RED}[!] No target set!{Colors.END}")
@@ -1154,7 +1154,7 @@ def guess_target_type(self, target):
         
         self.save_result('name_tracking', {'name': self.target, 'first': first_name, 'last': last_name})
         self.pause()
-    
+
     def geo_tracker(self):
         if not self.target:
             print(f"{Colors.RED}[!] No target set!{Colors.END}")
@@ -1232,7 +1232,7 @@ def guess_target_type(self, target):
         
         self.save_result('geo_tracker', {'target': self.target})
         self.pause()
-    
+
     def image_intel(self):
         self.clear_screen()
         print(f"{Colors.BLUE}┌─────────────────────────────────────────────┐{Colors.END}")
@@ -1287,7 +1287,7 @@ def guess_target_type(self, target):
             print(f"{Colors.RED}[!] Invalid image path or URL{Colors.END}")
         
         self.pause()
-    
+
     def document_meta(self):
         self.clear_screen()
         print(f"{Colors.BLUE}┌─────────────────────────────────────────────┐{Colors.END}")
@@ -1315,7 +1315,7 @@ def guess_target_type(self, target):
         print(f"  strings {path} | grep -i 'author\\|creator\\|producer'")
         
         self.pause()
-    
+
     def password_intel(self):
         self.clear_screen()
         print(f"{Colors.BLUE}┌─────────────────────────────────────────────┐{Colors.END}")
@@ -1342,7 +1342,7 @@ def guess_target_type(self, target):
         print(f"  Probable-Wordlists: https://github.com/berzerk0/Probable-Wordlists")
         
         self.pause()
-    
+
     def dark_web(self):
         self.clear_screen()
         print(f"{Colors.BLUE}┌─────────────────────────────────────────────┐{Colors.END}")
@@ -1368,7 +1368,7 @@ def guess_target_type(self, target):
         print(f"  OnionLand: http://3bbad7fauom4d6sgppalyqddsqbf5u5p56b5k5uk2zxsy3d6ey2jobad.onion/")
         
         self.pause()
-    
+
     def breach_hunter(self):
         self.clear_screen()
         print(f"{Colors.BLUE}┌─────────────────────────────────────────────┐{Colors.END}")
@@ -1393,7 +1393,7 @@ def guess_target_type(self, target):
             print(f"  IntelX: https://intelx.io/?s={self.target}")
         
         self.pause()
-    
+
     def criminal_records(self):
         self.clear_screen()
         print(f"{Colors.BLUE}┌─────────────────────────────────────────────┐{Colors.END}")
@@ -1424,7 +1424,7 @@ def guess_target_type(self, target):
             print(f"  BlackBookOnline: https://www.blackbookonline.info/")
         
         self.pause()
-    
+
     def financial_footprint(self):
         self.clear_screen()
         print(f"{Colors.BLUE}┌─────────────────────────────────────────────┐{Colors.END}")
@@ -1451,13 +1451,13 @@ def guess_target_type(self, target):
             print(f"  Property Records: https://www.countyoffice.org/property-records/")
         
         self.pause()
-    
+
     def asset_discovery(self):
         self.financial_footprint()
-    
+
     def court_records(self):
         self.criminal_records()
-    
+
     def gov_databases(self):
         self.clear_screen()
         print(f"{Colors.BLUE}┌─────────────────────────────────────────────┐{Colors.END}")
@@ -1525,7 +1525,7 @@ def guess_target_type(self, target):
             print()
         
         self.pause()
-    
+
     def relationship_map(self):
         self.clear_screen()
         print(f"{Colors.BLUE}┌─────────────────────────────────────────────┐{Colors.END}")
@@ -1552,7 +1552,7 @@ def guess_target_type(self, target):
             print(f"  Academia.edu: https://www.academia.edu/people/search?q={self.target}")
         
         self.pause()
-    
+
     def live_alerts(self):
         self.clear_screen()
         print(f"{Colors.BLUE}┌─────────────────────────────────────────────┐{Colors.END}")
@@ -1580,7 +1580,7 @@ def guess_target_type(self, target):
         
         print(f"\n{Colors.GREEN}[✓] Alert system configured. Check sources manually.{Colors.END}")
         self.pause()
-    
+
     def advanced_search(self):
         self.clear_screen()
         print(f"{Colors.BLUE}┌─────────────────────────────────────────────┐{Colors.END}")
@@ -1635,7 +1635,7 @@ def guess_target_type(self, target):
             print()
         
         self.pause()
-    
+
     def export_results(self):
         self.clear_screen()
         print(f"{Colors.BLUE}┌─────────────────────────────────────────────┐{Colors.END}")
@@ -1766,10 +1766,10 @@ def guess_target_type(self, target):
             print(f"{Colors.RED}[!] Invalid choice{Colors.END}")
         
         self.pause()
-    
+
     def generate_report(self):
         self.export_results()
-    
+
     def configure_apis(self):
         self.clear_screen()
         print(f"{Colors.BLUE}┌─────────────────────────────────────────────┐{Colors.END}")
@@ -1811,7 +1811,7 @@ def guess_target_type(self, target):
             print(f"{Colors.GREEN}[✓] All configured APIs are working{Colors.END}")
         
         self.pause()
-    
+
     def update_framework(self):
         self.clear_screen()
         print(f"{Colors.BLUE}┌─────────────────────────────────────────────┐{Colors.END}")
@@ -1824,7 +1824,7 @@ def guess_target_type(self, target):
         print(f"{Colors.YELLOW}[!] Check GitHub for latest version: https://github.com/deepeye{Colors.END}")
         
         self.pause()
-    
+
     def view_database(self):
         self.clear_screen()
         print(f"{Colors.BLUE}┌─────────────────────────────────────────────┐{Colors.END}")
@@ -1870,7 +1870,7 @@ def guess_target_type(self, target):
             print(f"{Colors.RED}[!] Could not read database{Colors.END}")
         
         self.pause()
-    
+
     def help_menu(self):
         self.clear_screen()
         print(f"{Colors.BLUE}┌─────────────────────────────────────────────┐{Colors.END}")
@@ -2004,7 +2004,7 @@ The developers assume no liability for any misuse or damage.{Colors.END}
 """
         print(help_text)
         self.pause()
-    
+
     def exit_framework(self):
         print(f"\n{Colors.GREEN}[*] Exiting DeepEye...{Colors.END}")
         print(f"{Colors.GREEN}[*] Remember: Use this power responsibly.{Colors.END}")
